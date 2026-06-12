@@ -18,9 +18,10 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         php-version: ['8.3', '8.4', '8.5']
 
@@ -60,5 +61,24 @@ jobs:
       - name: Run Type Analysis
         run: composer types:check
 
-      - name: Tests
-        run: php artisan test
+      - name: Unit Tests
+        run: php artisan test --testsuite=Unit
+
+      - name: Feature Tests
+        run: php artisan test --testsuite=Feature
+
+  # Single, stable status check to mark as "required" in branch protection.
+  # Succeeds only when every matrix job above (unit + feature on all PHP versions) passes.
+  tests-passed:
+    name: tests-passed
+    runs-on: ubuntu-latest
+    needs: tests
+    if: always()
+    steps:
+      - name: Verify all test jobs succeeded
+        run: |
+          if [ "${{ needs.tests.result }}" != "success" ]; then
+            echo "One or more unit/feature test jobs failed."
+            exit 1
+          fi
+          echo "All unit and feature tests passed."
