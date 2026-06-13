@@ -1,0 +1,29 @@
+# Local secrets & env (never bake these into the image)
+.env
+.env.*
+!.env.example
+
+# Dependencies / build output (reinstalled & rebuilt inside the image)
+node_modules
+vendor
+public/build
+public/hot
+
+# VCS & tooling
+.git
+.github
+.gitignore
+.idea
+.vscode
+.cursor
+.claude
+
+# OS / logs / local data
+.DS_Store
+storage/*.key
+storage/logs/*
+*.log
+database/*.sqlite
+
+# Tests & docs not needed at runtime
+.phpunit.result.cache

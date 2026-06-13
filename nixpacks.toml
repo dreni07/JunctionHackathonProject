@@ -6,4 +6,4 @@
 # (PHP, Node, etc.) instead of replacing them.
 
 [phases.setup]
-aptPkgs = ["...", "tesseract-ocr", "tesseract-ocr-eng"]
+aptPkgs = ["...", "tesseract-ocr", "tesseract-ocr-eng", "imagemagick", "poppler-utils"]
