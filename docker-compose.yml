@@ -10,6 +10,10 @@ services:
       DB_DATABASE: hackathon
       DB_USERNAME: hackathon
       DB_PASSWORD: secret
+      # Passed through from your local .env so the app can reach Groq/Gemini.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy

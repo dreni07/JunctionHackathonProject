@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\DocumentOcrService;
+use App\Services\GroqService;
 use App\Services\OcrService;
 use App\Services\QdrantService;
 use App\Services\VectorStore;
@@ -38,6 +39,14 @@ class AppServiceProvider extends ServiceProvider
                 timeout: config('ocr.timeout'),
                 preprocess: config('ocr.preprocess'),
                 imagemagickBinary: config('ocr.imagemagick_binary'),
+            );
+        });
+
+        $this->app->singleton(GroqService::class, function (): GroqService {
+            return new GroqService(
+                apiKey: config('services.groq.api_key'),
+                baseUrl: config('services.groq.base_url'),
+                model: config('services.groq.model'),
             );
         });
 
