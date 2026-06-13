@@ -186,17 +186,34 @@ class QdrantService
     }
 
     /**
-     * @return array<int, array{id: string|int, score: float, payload: array<string, mixed>}>
+     * @return list<array{id: string|int, score: float, payload: array<array-key, mixed>}>
      */
     private function mapSearchResults(Response $response): array
     {
-        return collect($response->json('result', []))
-            ->map(fn (array $result): array => [
-                'id' => $result['id'],
-                'score' => (float) $result['score'],
-                'payload' => $result['payload'] ?? [],
-            ])
-            ->values()
-            ->all();
+        $results = $response->json('result');
+
+        if (! is_array($results)) {
+            return [];
+        }
+
+        $mapped = [];
+
+        foreach ($results as $result) {
+            if (! is_array($result)) {
+                continue;
+            }
+
+            $id = $result['id'] ?? null;
+            $score = $result['score'] ?? null;
+            $payload = $result['payload'] ?? [];
+
+            $mapped[] = [
+                'id' => is_int($id) ? $id : (string) (is_scalar($id) ? $id : ''),
+                'score' => is_numeric($score) ? (float) $score : 0.0,
+                'payload' => is_array($payload) ? $payload : [],
+            ];
+        }
+
+        return $mapped;
     }
 }
