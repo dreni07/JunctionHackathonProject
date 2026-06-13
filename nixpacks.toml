@@ -1,0 +1,9 @@
+# Laravel Cloud builds this app with Nixpacks. This file adds the Tesseract OCR
+# binary (and the English language data) to both the build and runtime image so
+# the app can shell out to `tesseract` in production.
+#
+# The "..." entry is required: it extends the packages Nixpacks already installs
+# (PHP, Node, etc.) instead of replacing them.
+
+[phases.setup]
+aptPkgs = ["...", "tesseract-ocr", "tesseract-ocr-eng"]
