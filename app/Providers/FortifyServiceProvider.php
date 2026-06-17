@@ -65,6 +65,12 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::verifyEmailView(fn (Request $request) => Inertia::render('auth/verify-email', [
             'status' => $request->session()->get('status'),
+            // Seconds the user must wait before another email can be sent
+            // (60 right after a send, 0 once the window has elapsed). The key
+            // mirrors how the throttle middleware stores a named limiter.
+            'resendCooldown' => RateLimiter::availableIn(
+                md5('verification'.($request->user()?->id ?? $request->ip())),
+            ),
         ]));
 
         Fortify::registerView(fn () => Inertia::render('auth/register', [
@@ -95,6 +101,15 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by(
                 ($request->input('credential.id') ?: $request->session()->getId()).'|'.$request->ip(),
             );
+        });
+
+        // Allow at most one verification email per 60 seconds, per user.
+        // Hitting this returns HTTP 429 with a Retry-After header that the
+        // verify-email screen reads to drive its resend countdown.
+        RateLimiter::for('verification', function (Request $request) {
+            $key = $request->user()?->id ?? $request->ip();
+
+            return Limit::perMinute(1)->by((string) $key);
         });
     }
 }

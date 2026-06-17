@@ -1,39 +1,57 @@
 <?php
 
-use App\Services\GroqService;
+use App\Agent\AgentService;
 
 it('renders the chat page', function () {
     $this->get('/chat')->assertOk();
 });
 
-it('returns the assistant reply for a conversation', function () {
-    $this->mock(GroqService::class)
-        ->shouldReceive('chat')
+it('returns the agent reply and tools used', function () {
+    $this->mock(AgentService::class)
+        ->shouldReceive('run')
         ->once()
-        ->andReturn('Hello! How can I help with your studies?');
+        ->andReturn(['reply' => 'Here is your answer.', 'tools_used' => ['document_search']]);
 
     $this->postJson('/chat', [
         'messages' => [
-            ['role' => 'user', 'content' => 'Hi there'],
+            ['role' => 'user', 'content' => 'What do my notes say about attention?'],
         ],
     ])
         ->assertOk()
-        ->assertExactJson(['reply' => 'Hello! How can I help with your studies?']);
+        ->assertExactJson(['reply' => 'Here is your answer.', 'tools_used' => ['document_search']]);
 });
 
-it('prepends a system prompt before calling Groq', function () {
-    $this->mock(GroqService::class)
-        ->shouldReceive('chat')
+it('passes the conversation to the agent', function () {
+    $this->mock(AgentService::class)
+        ->shouldReceive('run')
         ->once()
-        ->withArgs(function (array $messages): bool {
-            return $messages[0]['role'] === 'system'
-                && $messages[1]['content'] === 'Explain attention';
+        ->withArgs(function (array $conversation): bool {
+            return $conversation[0]['content'] === 'Explain attention';
         })
-        ->andReturn('Sure.');
+        ->andReturn(['reply' => 'Sure.', 'tools_used' => []]);
 
     $this->postJson('/chat', [
         'messages' => [
             ['role' => 'user', 'content' => 'Explain attention'],
+        ],
+    ])->assertOk();
+});
+
+it('sanitizes UI-only fields and only sends role/content to the agent', function () {
+    $this->mock(AgentService::class)
+        ->shouldReceive('run')
+        ->once()
+        ->withArgs(function (array $conversation): bool {
+            // The assistant turn must be stripped down to role + content only.
+            return array_keys($conversation[1]) === ['role', 'content'];
+        })
+        ->andReturn(['reply' => 'Got it.', 'tools_used' => []]);
+
+    $this->postJson('/chat', [
+        'messages' => [
+            ['role' => 'user', 'content' => 'Hi'],
+            ['role' => 'assistant', 'content' => 'Hello!', 'tools' => ['db_query']],
+            ['role' => 'user', 'content' => 'How many documents do I have?'],
         ],
     ])->assertOk();
 });

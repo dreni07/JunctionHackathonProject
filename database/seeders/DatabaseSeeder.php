@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\RoleName;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -15,11 +16,22 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call(RolePermissionSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // One demo account per role (all share the password "password").
+        $accounts = [
+            ['name' => 'Olta Organizer', 'email' => 'organizer@pyramid.test', 'role' => RoleName::Organizer],
+            ['name' => 'Ops Team', 'email' => 'operations@pyramid.test', 'role' => RoleName::Operations],
+            ['name' => 'Manager Mira', 'email' => 'management@pyramid.test', 'role' => RoleName::Management],
+        ];
+
+        foreach ($accounts as $account) {
+            $user = User::factory()->create([
+                'name' => $account['name'],
+                'email' => $account['email'],
+            ]);
+
+            $user->assignRole($account['role']);
+        }
     }
 }

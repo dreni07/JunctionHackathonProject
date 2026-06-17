@@ -52,9 +52,12 @@ RUN cp -n .env.example .env \
 # --- Writable dirs -----------------------------------------------------------
 RUN chown -R www-data:www-data storage bootstrap/cache
 
+# Entrypoint syncs runtime env into .env (artisan serve only forwards .env
+# vars), waits for MySQL, migrates, then serves.
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 8000
 
-# Built-in dev server (fine for a hackathon/demo). Migrations run at container
-# start, not build time. The loop waits for the MySQL service to accept
-# connections before migrating, then serves.
-CMD ["sh", "-c", "until php artisan migrate --force; do echo 'Waiting for MySQL...'; sleep 3; done && php artisan serve --host=0.0.0.0 --port=8000"]
+# Built-in dev server (fine for a hackathon/demo).
+CMD ["sh", "/usr/local/bin/entrypoint.sh"]

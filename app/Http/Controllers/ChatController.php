@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\GroqService;
+use App\Agent\AgentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -11,9 +11,7 @@ use Inertia\Response;
 
 class ChatController extends Controller
 {
-    private const SYSTEM_PROMPT = 'You are a helpful study and research assistant. Answer clearly and concisely.';
-
-    public function __construct(private readonly GroqService $groq) {}
+    public function __construct(private readonly AgentService $agent) {}
 
     /**
      * Render the chat page.
@@ -41,18 +39,22 @@ class ChatController extends Controller
             ], 422);
         }
 
-        /** @var list<array{role: string, content: string}> $history */
-        $history = $request->input('messages');
+        // Keep only role + content; the client may attach UI-only fields
+        // (e.g. which tools were used) that the LLM API rejects.
+        $messages = $request->input('messages');
+        $history = [];
 
-        $messages = array_merge(
-            [['role' => 'system', 'content' => self::SYSTEM_PROMPT]],
-            $history,
-        );
+        foreach (is_array($messages) ? $messages : [] as $message) {
+            if (is_array($message)) {
+                $history[] = [
+                    'role' => (string) ($message['role'] ?? ''),
+                    'content' => (string) ($message['content'] ?? ''),
+                ];
+            }
+        }
 
-        $reply = $this->groq->chat($messages);
+        $result = $this->agent->run($history);
 
-        return response()->json([
-            'reply' => $reply,
-        ]);
+        return response()->json($result);
     }
 }

@@ -4,16 +4,31 @@ services:
     ports:
       - "8000:8000"
     environment:
+      APP_URL: ${APP_URL:-http://localhost:8000}
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: hackathon
       DB_USERNAME: hackathon
       DB_PASSWORD: secret
-      # Passed through from your local .env so the app can reach Groq/Gemini.
+      # Passed through from your local .env so the app can reach Groq/Gemini/Qdrant.
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      QWDRANT_ENDPOINT: ${QWDRANT_ENDPOINT:-}
+      QWDRANT_API_KEY: ${QWDRANT_API_KEY:-}
+      QWDRANT_COLLECTION: ${QWDRANT_COLLECTION:-hackathon_documents}
+      QWDRANT_VECTOR_SIZE: ${QWDRANT_VECTOR_SIZE:-768}
+      # SMTP credentials — without these the container falls back to the `log`
+      # mail driver and verification emails are never actually sent.
+      MAIL_MAILER: ${MAIL_MAILER:-smtp}
+      MAIL_SCHEME: ${MAIL_SCHEME:-smtp}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Pyramid Backstage}
     depends_on:
       mysql:
         condition: service_healthy

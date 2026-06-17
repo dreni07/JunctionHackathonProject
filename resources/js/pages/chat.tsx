@@ -9,6 +9,7 @@ function getCookie(name: string): string {
 type Message = {
     role: 'user' | 'assistant';
     content: string;
+    tools?: string[];
 };
 
 export default function Chat() {
@@ -46,7 +47,9 @@ export default function Chat() {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-XSRF-TOKEN': getCookie('XSRF-TOKEN'),
                 },
-                body: JSON.stringify({ messages: next }),
+                body: JSON.stringify({
+                    messages: next.map((m) => ({ role: m.role, content: m.content })),
+                }),
             });
 
             const data = await res.json();
@@ -56,7 +59,10 @@ export default function Chat() {
                 return;
             }
 
-            setMessages([...next, { role: 'assistant', content: data.reply ?? '' }]);
+            setMessages([
+                ...next,
+                { role: 'assistant', content: data.reply ?? '', tools: data.tools_used ?? [] },
+            ]);
             scrollToBottom();
         } catch {
             setError('Network error — could not reach the server.');
@@ -96,6 +102,18 @@ export default function Chat() {
                             >
                                 {message.content}
                             </span>
+                            {message.role === 'assistant' && message.tools && message.tools.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                    {message.tools.map((tool, i) => (
+                                        <span
+                                            key={i}
+                                            className="rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300"
+                                        >
+                                            🔧 {tool}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))}
 

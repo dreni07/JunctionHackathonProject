@@ -35,11 +35,17 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
+                // Flat permission list backing the React `can()` helper. The UI
+                // shows/hides on permissions, never on role names.
+                'permissions' => $user?->permissionNames()->all() ?? [],
+                'roles' => $user?->roles->pluck('name')->all() ?? [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
