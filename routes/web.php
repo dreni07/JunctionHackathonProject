@@ -3,6 +3,7 @@
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\OcrController;
+use App\Http\Controllers\OperationalChangePollController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [OcrController::class, 'index'])->name('home');
@@ -18,6 +19,9 @@ Route::post('/chat', [ChatController::class, 'send'])->name('chat.send');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
+
+    Route::get('operational/changes/poll', OperationalChangePollController::class)
+        ->name('operational.changes.poll');
 });
 
 require __DIR__.'/settings.php';

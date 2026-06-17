@@ -8,6 +8,7 @@ use App\Agent\Tools\DbQueryTool;
 use App\Agent\Tools\DocumentSearchTool;
 use App\Agent\Tools\WebSearchTool;
 use App\Models\User;
+use App\Observers\OperationalChangeObserver;
 use App\Services\DocumentIndexer;
 use App\Services\DocumentOcrService;
 use App\Services\EmbeddingService;
@@ -111,6 +112,16 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->registerPermissionGates();
+        $this->registerOperationalSyncObservers();
+    }
+
+    protected function registerOperationalSyncObservers(): void
+    {
+        $observer = OperationalChangeObserver::class;
+
+        foreach (config('operational-sync.models', []) as $modelClass) {
+            $modelClass::observe($observer);
+        }
     }
 
     /**
