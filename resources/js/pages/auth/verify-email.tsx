@@ -1,11 +1,13 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { MailCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
+import type { Auth } from '@/types';
 
 type Props = {
     status?: string;
@@ -13,7 +15,12 @@ type Props = {
     resendCooldown?: number;
 };
 
+type PageProps = {
+    auth: Auth;
+};
+
 export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
+    const { auth } = usePage<PageProps>().props;
     const [seconds, setSeconds] = useState(resendCooldown);
 
     // Re-sync whenever the server reports a new cooldown (e.g. after a send).
@@ -45,8 +52,10 @@ export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
                         <MailCheck className="size-5" />
                     </span>
                     <p className="text-sm text-muted-foreground">
-                        We sent a verification link to your inbox. It stays valid
-                        for{' '}
+                        We sent a verification <strong className="text-foreground">link</strong>{' '}
+                        (not a numeric code) to{' '}
+                        <strong className="text-foreground">{auth.user?.email}</strong>.
+                        Check spam if you do not see it. The link stays valid for{' '}
                         <strong className="text-foreground">15 minutes</strong> —
                         after that, request a fresh one below.
                     </p>
@@ -60,8 +69,10 @@ export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
                 )}
 
                 <Form {...send.form()} className="flex flex-col gap-4">
-                    {({ processing }) => (
+                    {({ processing, errors }) => (
                         <>
+                            <InputError message={errors.email} />
+
                             <Button
                                 type="submit"
                                 disabled={processing || waiting}

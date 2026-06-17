@@ -48,12 +48,12 @@ class Space extends Model
     }
 
     /**
-     * Availability / booking slots for this space.
+     * Calendar reservations (bookings) for this space.
      *
-     * @return HasMany<SpaceAvailability, $this>
+     * @return HasMany<Reservation, $this>
      */
-    public function availability(): HasMany
+    public function reservations(): HasMany
     {
-        return $this->hasMany(SpaceAvailability::class);
+        return $this->hasMany(Reservation::class);
     }
 }

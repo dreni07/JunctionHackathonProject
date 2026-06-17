@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -81,6 +82,46 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function events(): HasMany
     {
         return $this->hasMany(Event::class, 'created_by');
+    }
+
+    /**
+     * Operational tasks assigned to this user.
+     *
+     * @return HasMany<Task, $this>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
+
+    /**
+     * Operational alerts targeted at this user (null user_id = team-wide).
+     *
+     * @return HasMany<Alert, $this>
+     */
+    public function alerts(): HasMany
+    {
+        return $this->hasMany(Alert::class);
+    }
+
+    /**
+     * Whether this user is a Pyramid operational worker — the only kind of
+     * user a task may be assigned to.
+     */
+    public function isOperationalWorker(): bool
+    {
+        return $this->hasRole(RoleName::Operations);
+    }
+
+    /**
+     * Scope to the operational workers a task can be assigned to.
+     *
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeOperationalWorkers(Builder $query): Builder
+    {
+        return $query->whereHas('roles', fn ($q) => $q->where('name', RoleName::Operations->value));
     }
 
     /**

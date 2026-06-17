@@ -42,10 +42,34 @@ class Organization extends Model
     }
 
     /**
+     * @return HasMany<EventRequest, $this>
+     */
+    public function eventRequests(): HasMany
+    {
+        return $this->hasMany(EventRequest::class);
+    }
+
+    /**
      * @return HasMany<Event, $this>
      */
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);
+    }
+
+    /**
+     * @return HasMany<FinalProposal, $this>
+     */
+    public function finalProposals(): HasMany
+    {
+        return $this->hasMany(FinalProposal::class);
+    }
+
+    /**
+     * @return HasMany<Task, $this>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
     }
 }

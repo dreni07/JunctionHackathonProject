@@ -19,24 +19,13 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Availability / booking slots. A row with a non-null event_id means
-        // the space is booked for that window — the conflict engine reads this.
-        Schema::create('space_availability', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('space_id')->constrained()->cascadeOnDelete();
-            $table->date('date');
-            $table->time('start_time');
-            $table->time('end_time');
-            $table->foreignUuid('event_id')->nullable()->constrained()->nullOnDelete();
-            $table->timestamps();
-
-            $table->index(['space_id', 'date']); // fast availability/conflict lookups
-        });
+        // NOTE: space bookings live in the dedicated `reservations` table
+        // (see create_reservations_table) — the single calendar/source of truth
+        // the conflict-checking agent reads.
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('space_availability');
         Schema::dropIfExists('spaces');
     }
 };

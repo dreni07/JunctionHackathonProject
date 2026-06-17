@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -42,6 +43,7 @@ class Event extends Model
         'end_time',
         'budget',
         'organization_id',
+        'event_request_id',
         'created_by',
     ];
 
@@ -66,6 +68,16 @@ class Event extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * The inbound request this event originated from (if any).
+     *
+     * @return BelongsTo<EventRequest, $this>
+     */
+    public function eventRequest(): BelongsTo
+    {
+        return $this->belongsTo(EventRequest::class);
     }
 
     /**
@@ -95,11 +107,33 @@ class Event extends Model
     }
 
     /**
-     * @return HasMany<SpaceAvailability, $this>
+     * Calendar reservations held by this event.
+     *
+     * @return HasMany<Reservation, $this>
      */
-    public function spaceBookings(): HasMany
+    public function reservations(): HasMany
     {
-        return $this->hasMany(SpaceAvailability::class);
+        return $this->hasMany(Reservation::class);
+    }
+
+    /**
+     * The proposal this event was created from (if any).
+     *
+     * @return HasOne<FinalProposal, $this>
+     */
+    public function finalProposal(): HasOne
+    {
+        return $this->hasOne(FinalProposal::class);
+    }
+
+    /**
+     * Operational tasks for this event.
+     *
+     * @return HasMany<Task, $this>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
     }
 
     /**
@@ -118,5 +152,45 @@ class Event extends Model
     public function assignedAssets(): HasMany
     {
         return $this->hasMany(Asset::class, 'assigned_event_id');
+    }
+
+    /**
+     * @return HasMany<Conflict, $this>
+     */
+    public function conflicts(): HasMany
+    {
+        return $this->hasMany(Conflict::class);
+    }
+
+    /**
+     * @return HasMany<ActivityLog, $this>
+     */
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
+
+    /**
+     * @return HasMany<EventContact, $this>
+     */
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(EventContact::class);
+    }
+
+    /**
+     * @return MorphMany<Approval, $this>
+     */
+    public function approvals(): MorphMany
+    {
+        return $this->morphMany(Approval::class, 'approvable');
+    }
+
+    /**
+     * @return HasMany<Alert, $this>
+     */
+    public function alerts(): HasMany
+    {
+        return $this->hasMany(Alert::class);
     }
 }
