@@ -16,6 +16,8 @@ createInertiaApp({
                 return null;
             case name === 'landing':
                 return null;
+            case name === 'planner':
+                return null;
             case name.startsWith('documents/'):
                 return null;
             case name === 'chat':

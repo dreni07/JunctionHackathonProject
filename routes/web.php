@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'landing')->name('home');
 
+Route::inertia('/planner', 'planner')->name('planner');
+
 Route::get('/ocr', [OcrController::class, 'index'])->name('ocr.index');
 Route::post('/ocr', [OcrController::class, 'extract'])->name('ocr.extract');
 Route::post('/ocr/document', [OcrController::class, 'extractDocument'])->name('ocr.document');
