@@ -41,5 +41,8 @@ class DatabaseSeeder extends Seeder
 
         // Tenants (Pyramid branches) and their operational demo workers.
         $this->call(TenantSeeder::class);
+
+        // 30 operational workers spread across tenants and roles.
+        $this->call(WorkforceSeeder::class);
     }
 }

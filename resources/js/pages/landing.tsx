@@ -6,6 +6,9 @@ type Props = {
     stepStyle?: 'cards' | 'minimal';
 };
 
+const HERO_IMAGE = '/assets/pyramid.webp';
+const CARD_IMAGE = '/assets/pyramid-card.webp';
+
 const steps = [
     {
         num: '1',
@@ -104,6 +107,7 @@ export default function Landing({
                     href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap"
                     rel="stylesheet"
                 />
+                <link rel="preload" as="image" href={HERO_IMAGE} />
             </Head>
             <style dangerouslySetInnerHTML={{ __html: css }} />
 
@@ -123,7 +127,7 @@ export default function Landing({
                         style={{
                             position: 'absolute',
                             inset: 0,
-                            backgroundImage: "url('/assets/pyramid.png')",
+                            backgroundImage: `url('${HERO_IMAGE}')`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center 38%',
                             transform: 'scale(1.03)',
@@ -695,8 +699,10 @@ export default function Landing({
                                     }}
                                 >
                                     <img
-                                        src="/assets/pyramid.png"
+                                        src={CARD_IMAGE}
                                         alt=""
+                                        loading="lazy"
+                                        decoding="async"
                                         style={{
                                             position: 'absolute',
                                             inset: 0,
@@ -839,8 +845,10 @@ export default function Landing({
                                     }}
                                 >
                                     <img
-                                        src="/assets/pyramid.png"
+                                        src={CARD_IMAGE}
                                         alt=""
+                                        loading="lazy"
+                                        decoding="async"
                                         style={{
                                             position: 'absolute',
                                             inset: 0,
@@ -982,8 +990,10 @@ export default function Landing({
                                     }}
                                 >
                                     <img
-                                        src="/assets/pyramid.png"
+                                        src={CARD_IMAGE}
                                         alt=""
+                                        loading="lazy"
+                                        decoding="async"
                                         style={{
                                             position: 'absolute',
                                             inset: 0,

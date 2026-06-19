@@ -1,120 +1,190 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Link } from '@inertiajs/react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
-import TextLink from '@/components/text-link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import AuthMinimalLayout from '@/layouts/auth/auth-minimal-layout';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
+import { request } from '@/routes/password';
 
-type Props = {
-    passwordRules: string;
-};
+const inputClass =
+    'w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-900';
+const labelClass = 'mb-2 block text-sm font-medium text-neutral-700';
 
-export default function Register({ passwordRules }: Props) {
+const passwordRules = [
+    'Use 8 or more characters',
+    'Use upper and lower case letters (e.g. Aa)',
+    'Use a number (e.g. 1234)',
+    'Use a symbol (e.g. !@#$)',
+];
+
+export default function Register() {
+    const [showPassword, setShowPassword] = useState(false);
+
     return (
-        <>
-            <Head title="Register" />
+        <AuthMinimalLayout
+            title="Create an account"
+            topRight={
+                <>
+                    <p>
+                        Already have an account?{' '}
+                        <Link
+                            href={login()}
+                            className="font-medium text-neutral-800 underline underline-offset-2"
+                        >
+                            Log in
+                        </Link>
+                    </p>
+                    <Link
+                        href={request()}
+                        className="text-neutral-500 hover:text-neutral-700"
+                    >
+                        Forget your user ID or password?
+                    </Link>
+                </>
+            }
+        >
+            <div className="mb-7 text-center">
+                <h1 className="text-[26px] font-bold tracking-tight text-neutral-900">
+                    Create an account
+                </h1>
+                <p className="mx-auto mt-2 max-w-[300px] text-sm leading-relaxed text-neutral-500">
+                    Set up your organization to start planning events at the
+                    Pyramid of Tirana.
+                </p>
+            </div>
+
             <Form
                 {...store.form()}
-                resetOnSuccess={['password', 'password_confirmation']}
+                resetOnSuccess={['password']}
                 disableWhileProcessing
-                className="flex flex-col gap-6"
+                className="flex flex-col gap-5"
             >
                 {({ processing, errors }) => (
                     <>
-                        <div className="grid gap-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">Name</Label>
-                                <Input
-                                    id="name"
-                                    type="text"
-                                    required
-                                    autoFocus
-                                    tabIndex={1}
-                                    autoComplete="name"
-                                    name="name"
-                                    placeholder="Full name"
-                                />
-                                <InputError
-                                    message={errors.name}
-                                    className="mt-2"
-                                />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
-                                <Input
+                        {/* Email + tooltip */}
+                        <div>
+                            <label htmlFor="email" className={labelClass}>
+                                Email
+                            </label>
+                            <div className="relative">
+                                <input
                                     id="email"
+                                    name="email"
                                     type="email"
                                     required
-                                    tabIndex={2}
+                                    autoFocus
                                     autoComplete="email"
-                                    name="email"
-                                    placeholder="email@example.com"
+                                    className={inputClass}
                                 />
-                                <InputError message={errors.email} />
+                                <div className="pointer-events-none absolute top-1/2 left-full ml-4 hidden -translate-y-1/2 rounded-lg bg-neutral-800 px-3 py-2 text-xs whitespace-nowrap text-white shadow-lg lg:block">
+                                    We will use your email as your user ID.
+                                    <span className="absolute top-1/2 right-full -translate-y-1/2 border-8 border-transparent border-r-neutral-800" />
+                                </div>
                             </div>
+                            <InputError message={errors.email} className="mt-2" />
+                        </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
-                                <PasswordInput
-                                    id="password"
-                                    required
-                                    tabIndex={3}
-                                    autoComplete="new-password"
-                                    name="password"
-                                    placeholder="Password"
-                                    passwordrules={passwordRules}
-                                />
-                                <InputError message={errors.password} />
+                        {/* Phone */}
+                        <div>
+                            <label htmlFor="phone" className={labelClass}>
+                                Phone
+                            </label>
+                            <input
+                                id="phone"
+                                name="phone"
+                                type="tel"
+                                autoComplete="tel"
+                                className={inputClass}
+                            />
+                            <p className="mt-2 text-xs leading-relaxed text-neutral-400">
+                                We strongly recommend adding a phone number. This
+                                will help verify your account and keep it safe.
+                            </p>
+                            <InputError message={errors.phone} className="mt-2" />
+                        </div>
+
+                        {/* Password */}
+                        <div>
+                            <div className="mb-2 flex items-center justify-between">
+                                <label
+                                    htmlFor="password"
+                                    className="text-sm font-medium text-neutral-700"
+                                >
+                                    Password
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPassword((value) => !value)
+                                    }
+                                    className="flex items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-800"
+                                >
+                                    {showPassword ? (
+                                        <Eye className="size-4" />
+                                    ) : (
+                                        <EyeOff className="size-4" />
+                                    )}
+                                    {showPassword ? 'Show' : 'Hide'}
+                                </button>
                             </div>
+                            <input
+                                id="password"
+                                name="password"
+                                type={showPassword ? 'text' : 'password'}
+                                required
+                                autoComplete="new-password"
+                                className={inputClass}
+                            />
+                            <InputError
+                                message={errors.password}
+                                className="mt-2"
+                            />
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation">
-                                    Confirm password
-                                </Label>
-                                <PasswordInput
-                                    id="password_confirmation"
-                                    required
-                                    tabIndex={4}
-                                    autoComplete="new-password"
-                                    name="password_confirmation"
-                                    placeholder="Confirm password"
-                                    passwordrules={passwordRules}
-                                />
-                                <InputError
-                                    message={errors.password_confirmation}
-                                />
-                            </div>
+                            <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                                {passwordRules.map((rule) => (
+                                    <li
+                                        key={rule}
+                                        className="flex items-center gap-2 text-[13px] text-neutral-400"
+                                    >
+                                        <span className="size-1.5 rounded-full bg-neutral-300" />
+                                        {rule}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
 
-                            <Button
-                                type="submit"
-                                className="mt-2 w-full"
-                                tabIndex={5}
-                                data-test="register-user-button"
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-neutral-900 px-6 py-3.5 text-[15px] font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-60"
+                            data-test="register-user-button"
+                        >
+                            {processing && <Spinner />}
+                            Create account
+                        </button>
+
+                        <p className="text-center text-[13px] leading-relaxed text-neutral-500">
+                            By creating an account, you agree to the{' '}
+                            <a
+                                href="#"
+                                className="font-medium text-neutral-700 underline underline-offset-2"
                             >
-                                {processing && <Spinner />}
-                                Create account
-                            </Button>
-                        </div>
-
-                        <div className="text-center text-sm text-muted-foreground">
-                            Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={6}>
-                                Log in
-                            </TextLink>
-                        </div>
+                                Terms of use
+                            </a>{' '}
+                            and{' '}
+                            <a
+                                href="#"
+                                className="font-medium text-neutral-700 underline underline-offset-2"
+                            >
+                                Privacy Policy
+                            </a>
+                            .
+                        </p>
                     </>
                 )}
             </Form>
-        </>
+        </AuthMinimalLayout>
     );
 }
-
-Register.layout = {
-    title: 'Create an account',
-    description: 'Enter your details below to create your account',
-};

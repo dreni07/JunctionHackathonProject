@@ -16,11 +16,17 @@ createInertiaApp({
                 return null;
             case name === 'landing':
                 return null;
+            case name === 'planner':
+                return null;
             case name.startsWith('documents/'):
                 return null;
             case name === 'chat':
                 return null;
             case name.startsWith('pyramid/'):
+                return null;
+            case name === 'auth/login':
+                return null;
+            case name === 'auth/register':
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;

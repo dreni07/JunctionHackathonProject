@@ -15,6 +15,9 @@ class AgentService
         You have tools available:
         - document_search: semantic search over the user's uploaded documents. Prefer this
           for questions about what the user has uploaded.
+        - file_search: reads the docs knowledge library on disk (Pyramid spaces, booking
+          and approval policies, tenants, event guidelines). Prefer this for questions
+          about how the Pyramid works and what events are likely to be approved.
         - db_query: read-only SQL over the documents table for counts, filters, and listings.
         - web_search: the public web, for general or current information not in the documents.
 

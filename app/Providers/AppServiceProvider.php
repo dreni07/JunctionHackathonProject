@@ -6,16 +6,20 @@ use App\Agent\AgentService;
 use App\Agent\Tool;
 use App\Agent\Tools\DbQueryTool;
 use App\Agent\Tools\DocumentSearchTool;
+use App\Agent\Tools\FileSearchTool;
 use App\Agent\Tools\WebSearchTool;
 use App\Models\User;
 use App\Observers\OperationalChangeObserver;
 use App\Services\DocumentIndexer;
 use App\Services\DocumentOcrService;
 use App\Services\EmbeddingService;
+use App\Services\FileSearchService;
 use App\Services\GroqService;
 use App\Services\OcrService;
 use App\Services\PdfTextExtractor;
 use App\Services\QdrantService;
+use App\Services\SpeechToTextService;
+use App\Services\TextToSpeechService;
 use App\Services\VectorStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -94,6 +98,28 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(FileSearchService::class, function (): FileSearchService {
+            return new FileSearchService(rootPath: base_path('docs'));
+        });
+
+        $this->app->singleton(SpeechToTextService::class, function (): SpeechToTextService {
+            return new SpeechToTextService(
+                apiKey: (string) config('services.openai.api_key'),
+                baseUrl: (string) config('services.openai.base_url'),
+                model: (string) config('services.openai.stt.model'),
+            );
+        });
+
+        $this->app->singleton(TextToSpeechService::class, function (): TextToSpeechService {
+            return new TextToSpeechService(
+                apiKey: (string) config('services.openai.api_key'),
+                baseUrl: (string) config('services.openai.base_url'),
+                model: (string) config('services.openai.tts.model'),
+                voice: (string) config('services.openai.tts.voice'),
+                format: (string) config('services.openai.tts.format'),
+            );
+        });
+
         $this->app->singleton(AgentService::class, function (): AgentService {
             /** @var list<Tool> $tools */
             $tools = [
@@ -102,6 +128,10 @@ class AppServiceProvider extends ServiceProvider
                     $this->app->make(EmbeddingService::class),
                     $this->app->make(QdrantService::class),
                 ),
+                // Searches the whole docs library. To scope an agent to specific
+                // collections, pass them as the second argument, e.g.
+                // new FileSearchTool($svc, ['spaces', 'policies']).
+                new FileSearchTool($this->app->make(FileSearchService::class)),
                 new WebSearchTool,
             ];
 

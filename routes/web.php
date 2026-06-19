@@ -5,9 +5,16 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\OcrController;
 use App\Http\Controllers\OperationalChangePollController;
 use App\Http\Controllers\PyramidKnowledgeController;
+use App\Http\Controllers\SpeechController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'landing')->name('home');
+
+Route::inertia('/planner', 'planner')->name('planner');
+
+// Speech (OpenAI): voice input + spoken replies for the planner. Public.
+Route::post('/speech/transcribe', [SpeechController::class, 'transcribe'])->name('speech.transcribe');
+Route::post('/speech/speak', [SpeechController::class, 'speak'])->name('speech.speak');
 
 Route::get('/ocr', [OcrController::class, 'index'])->name('ocr.index');
 Route::post('/ocr', [OcrController::class, 'extract'])->name('ocr.extract');
