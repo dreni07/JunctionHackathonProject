@@ -13,12 +13,12 @@ const steps = [
     {
         num: '1',
         title: 'List your organization',
-        body: 'Create a profile for your company or organization in minutes â your team, your mission, the kind of events you run.',
+        body: 'Create a profile for your company or organization in minutes — your team, your mission, the kind of events you run.',
     },
     {
         num: '2',
         title: 'Get bid recommendations',
-        body: 'Our agents suggest strong bids drawn from applications that have actually been approved before â no more guesswork.',
+        body: 'Our agents suggest strong bids drawn from applications that have actually been approved before — no more guesswork.',
     },
     {
         num: '3',
@@ -293,7 +293,7 @@ export default function Landing({
                             }}
                         >
                             From finding the right floor to submitting a bid the
-                            tenants will approve â we guide every step, so
+                            tenants will approve — we guide every step, so
                             securing your event date is finally simple.
                         </p>
                         <a
@@ -302,7 +302,7 @@ export default function Landing({
                             style={{ animation: 'riseIn 0.85s ease 0.4s both' }}
                         >
                             Start planning
-                            <span className="arrow">â</span>
+                            <span className="arrow">→</span>
                         </a>
                     </div>
                 </section>
@@ -566,7 +566,7 @@ export default function Landing({
                                 marginTop: 'clamp(44px,7vh,76px)',
                             }}
                         >
-                            {/* Tenant 1: TUMO â text left, image right */}
+                            {/* Tenant 1: TUMO — text left, image right */}
                             <div
                                 className="reveal"
                                 style={{
@@ -618,7 +618,7 @@ export default function Landing({
                                                 color: '#6E6E6E',
                                             }}
                                         >
-                                            Arsim Â· Edukim
+                                            Arsim · Edukim
                                         </span>
                                     </div>
                                     <h3
@@ -642,14 +642,14 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        NÃ« ShqipÃ«ri, kjo qendÃ«r inovatore
-                                        vjen si njÃ« nismÃ« e Fondacionit
-                                        Shqiptaro-Amerikan pÃ«r Zhvillim (AADF)
-                                        nÃ« bashkÃ«punim me BashkinÃ« TiranÃ«.
-                                        NxÃ«nÃ«sit kanÃ« nÃ« dispozicion njÃ«
-                                        hapÃ«sirÃ« moderne me laboratorÃ«
-                                        mÃ«simorÃ«, auditore, studio muzikore
-                                        dhe shumÃ« ambiente tÃ« hapura studimi.
+                                        Në Shqipëri, kjo qendër inovatore
+                                        vjen si një nismë e Fondacionit
+                                        Shqiptaro-Amerikan për Zhvillim (AADF)
+                                        në bashkëpunim me Bashkinë Tiranë.
+                                        Nxënësit kanë në dispozicion një
+                                        hapësirë moderne me laboratorë
+                                        mësimorë, auditore, studio muzikore
+                                        dhe shumë ambiente të hapura studimi.
                                     </p>
                                     <p
                                         style={{
@@ -661,13 +661,13 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        TUMO Ã«shtÃ« njÃ« organizatÃ«
-                                        jofitimprurÃ«se e themeluar nga
-                                        Fondacioni Simonian pÃ«r Arsimin, e
-                                        hapur pÃ«r herÃ« tÃ« parÃ« nÃ« Jerevan
-                                        mÃ« 2011. Filozofia e saj unike e ka
-                                        sjellÃ« nÃ« Paris, Bejrut, Berlin,
-                                        MoskÃ« e tani nÃ« TiranÃ«.
+                                        TUMO është një organizatë
+                                        jofitimprurëse e themeluar nga
+                                        Fondacioni Simonian për Arsimin, e
+                                        hapur për herë të parë në Jerevan
+                                        më 2011. Filozofia e saj unike e ka
+                                        sjellë në Paris, Bejrut, Berlin,
+                                        Moskë e tani në Tiranë.
                                     </p>
                                     <p
                                         style={{
@@ -678,12 +678,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        StudentÃ«t mÃ«sojnÃ« nÃ« mÃ«nyrÃ« tÃ«
-                                        pavarur pÃ«rmes platformÃ«s TUMO Path,
-                                        duke ndÃ«rtuar njÃ« portofol personal
-                                        nÃ« programim, animacion, zhvillim
+                                        Studentët mësojnë në mënyrë të
+                                        pavarur përmes platformës TUMO Path,
+                                        duke ndërtuar një portofol personal
+                                        në programim, animacion, zhvillim
                                         lojrash, dizajn grafik, filmografi,
-                                        robotikÃ«, muzikÃ« dhe modelim 3D.
+                                        robotikë, muzikë dhe modelim 3D.
                                     </p>
                                 </div>
                                 <div
@@ -714,7 +714,7 @@ export default function Landing({
                                 </div>
                             </div>
 
-                            {/* Tenant 2: ICT â image left, text right */}
+                            {/* Tenant 2: ICT — image left, text right */}
                             <div
                                 className="reveal"
                                 style={{
@@ -767,7 +767,7 @@ export default function Landing({
                                                 color: '#6E6E6E',
                                             }}
                                         >
-                                            Teknologji Â· Inovacion
+                                            Teknologji · Inovacion
                                         </span>
                                     </div>
                                     <h3
@@ -779,7 +779,7 @@ export default function Landing({
                                             marginBottom: '18px',
                                         }}
                                     >
-                                        HapÃ«sira TIK
+                                        Hapësira TIK
                                     </h3>
                                     <p
                                         style={{
@@ -791,12 +791,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        HapÃ«sira TIK nÃ« ShqipÃ«ri ka parÃ«
-                                        rritje tÃ« konsiderueshme vitet e
+                                        Hapësira TIK në Shqipëri ka parë
+                                        rritje të konsiderueshme vitet e
                                         fundit, me programe arsimore, komunitete
-                                        dhe rrjete mbÃ«shtetÃ«se.
-                                        SipÃ«rmarrÃ«sit dhe startup-et po nxisin
-                                        inovacionin pÃ«r tÃ« pÃ«rmbushur nevojat
+                                        dhe rrjete mbështetëse.
+                                        Sipërmarrësit dhe startup-et po nxisin
+                                        inovacionin për të përmbushur nevojat
                                         globale dhe lokale.
                                     </p>
                                     <p
@@ -809,12 +809,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Piramida e TiranÃ«s do tÃ« luajÃ« njÃ«
-                                        rol qendror nÃ« nxitjen e kÃ«tij
-                                        ekosistemi â njÃ« qendÃ«r pÃ«r
-                                        shkÃ«mbimin e ideve, njÃ« forum publik
-                                        gjithÃ«pÃ«rfshirÃ«s, i hapur 24/7 me
-                                        njÃ« larmi funksionesh dhe eventesh.
+                                        Piramida e Tiranës do të luajë një
+                                        rol qendror në nxitjen e këtij
+                                        ekosistemi — një qendër për
+                                        shkëmbimin e ideve, një forum publik
+                                        gjithëpërfshirës, i hapur 24/7 me
+                                        një larmi funksionesh dhe eventesh.
                                     </p>
                                     <p
                                         style={{
@@ -825,11 +825,11 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Transformimi i saj nÃ« njÃ« ekosistem
-                                        tÃ« hapur TIK tregon se si njÃ«
-                                        ndÃ«rtesÃ« mund tÃ« pÃ«rshtatet pÃ«r
-                                        nevojat e njÃ« epoke tÃ« re, duke
-                                        ruajtur historinÃ« e saj.
+                                        Transformimi i saj në një ekosistem
+                                        të hapur TIK tregon se si një
+                                        ndërtesë mund të përshtatet për
+                                        nevojat e një epoke të re, duke
+                                        ruajtur historinë e saj.
                                     </p>
                                 </div>
                                 <div
@@ -860,7 +860,7 @@ export default function Landing({
                                 </div>
                             </div>
 
-                            {/* Tenant 3: ARTS â text left, image right */}
+                            {/* Tenant 3: ARTS — text left, image right */}
                             <div
                                 className="reveal"
                                 style={{
@@ -912,7 +912,7 @@ export default function Landing({
                                                 color: '#6E6E6E',
                                             }}
                                         >
-                                            KulturÃ« Â· Art
+                                            Kulturë · Art
                                         </span>
                                     </div>
                                     <h3
@@ -936,12 +936,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Arti luan njÃ« rol kyÃ§ nÃ« nxitjen e
-                                        krijimtarisÃ« dhe frymÃ«zimin e
-                                        perspektivave tÃ« reja. MundÃ«sia pÃ«r
-                                        tÃ« ndarÃ« dhe ekspozuar punÃ«n me
-                                        publikun Ã«shtÃ« thelbÃ«sore qÃ«
-                                        artistÃ«t tÃ« realizojnÃ« vizionin e
+                                        Arti luan një rol kyç në nxitjen e
+                                        krijimtarisë dhe frymëzimin e
+                                        perspektivave të reja. Mundësia për
+                                        të ndarë dhe ekspozuar punën me
+                                        publikun është thelbësore që
+                                        artistët të realizojnë vizionin e
                                         tyre.
                                     </p>
                                     <p
@@ -954,12 +954,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        NÃ« PiramidÃ«n e TiranÃ«s, ne jemi tÃ«
-                                        pÃ«rkushtuar pÃ«r tÃ« kultivuar artet
-                                        nÃ« ShqipÃ«ri. Me njÃ« gamÃ« tÃ«
+                                        Në Piramidën e Tiranës, ne jemi të
+                                        përkushtuar për të kultivuar artet
+                                        në Shqipëri. Me një gamë të
                                         larmishme ekspozitash, eventesh dhe
-                                        programesh, ajo do tÃ« shÃ«rbejÃ« si
-                                        vend takimi pÃ«r artistÃ«t me publikun.
+                                        programesh, ajo do të shërbejë si
+                                        vend takimi për artistët me publikun.
                                     </p>
                                     <p
                                         style={{
@@ -970,10 +970,10 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        NÃ«se jeni artist apo thjesht i
-                                        dashuruar pas artit, Piramida e TiranÃ«s
-                                        Ã«shtÃ« vendi i pÃ«rsosur pÃ«r t'u
-                                        frymÃ«zuar, biseduar dhe pÃ«r tÃ«
+                                        Nëse jeni artist apo thjesht i
+                                        dashuruar pas artit, Piramida e Tiranës
+                                        është vendi i përsosur për t'u
+                                        frymëzuar, biseduar dhe për të
                                         krijuar.
                                     </p>
                                 </div>
@@ -1097,7 +1097,7 @@ export default function Landing({
                                     <span
                                         style={{ transform: 'translateY(1px)' }}
                                     >
-                                        â
+                                        →
                                     </span>
                                 </a>
                             </div>
@@ -1237,7 +1237,7 @@ export default function Landing({
                                     color: 'rgba(255,255,255,0.45)',
                                 }}
                             >
-                                Â© 2026 Piramida Spaces Â· Tirana, Albania
+                                © 2026 Piramida Spaces · Tirana, Albania
                             </span>
                             <span
                                 style={{

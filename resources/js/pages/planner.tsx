@@ -7,7 +7,6 @@ import {
     MessageSquare,
     Mic,
     Sparkles,
-    Square,
     Triangle,
     Upload,
     UploadCloud,
@@ -56,6 +55,8 @@ const css = `
 @keyframes pl-spin{to{transform:rotate(360deg)}}
 @keyframes pl-blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
 .pl-spin{animation:pl-spin 1s linear infinite}
+@keyframes pl-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.pl-breathe{animation:pl-breathe 1.4s ease-in-out infinite}
 `;
 
 type Mode = 'home' | 'voice' | 'chat' | 'upload';
@@ -91,7 +92,6 @@ async function postJson(url: string, payload: unknown): Promise<Response> {
 
 export default function Planner() {
     const [mode, setMode] = useState<Mode>('home');
-    const [seedChat, setSeedChat] = useState('');
 
     return (
         <div
@@ -209,14 +209,9 @@ export default function Planner() {
 
                 {mode === 'home' && <Home onSelect={setMode} />}
                 {mode === 'voice' && (
-                    <VoiceMode
-                        onUseTranscript={(text) => {
-                            setSeedChat(text);
-                            setMode('chat');
-                        }}
-                    />
+                    <VoiceMode onExit={() => setMode('home')} />
                 )}
-                {mode === 'chat' && <ChatMode initialInput={seedChat} />}
+                {mode === 'chat' && <ChatMode />}
                 {mode === 'upload' && <UploadMode />}
             </div>
         </div>
@@ -402,119 +397,346 @@ function Orb({ size = 92 }: { size?: number }) {
 
 /* ============================ VOICE ============================ */
 
-type VoiceStatus = 'recording' | 'transcribing' | 'done' | 'error';
+type ConvoPhase = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
 
-function VoiceMode({
-    onUseTranscript,
-}: {
-    onUseTranscript: (text: string) => void;
-}) {
-    const [status, setStatus] = useState<VoiceStatus>('recording');
-    const [seconds, setSeconds] = useState(0);
-    const [transcript, setTranscript] = useState('');
+type VoiceTurn = { role: 'user' | 'assistant'; content: string };
+
+function VoiceMode({ onExit }: { onExit: () => void }) {
+    const [phase, setPhase] = useState<ConvoPhase>('idle');
+    const [turns, setTurns] = useState<VoiceTurn[]>([]);
     const [error, setError] = useState('');
 
+    const activeRef = useRef(false);
+    const streamRef = useRef<MediaStream | null>(null);
+    const audioCtxRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
     const recorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
-    const streamRef = useRef<MediaStream | null>(null);
-    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const vadRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const audioElRef = useRef<HTMLAudioElement | null>(null);
+    const historyRef = useRef<VoiceTurn[]>([]);
+    const mimeRef = useRef<{ type: string; ext: string }>({
+        type: '',
+        ext: 'webm',
+    });
+    const endingRef = useRef(false);
+    const transcriptRef = useRef<HTMLDivElement | null>(null);
 
-    const stopStream = () => {
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
+    const pickMime = (): { type: string; ext: string } => {
+        const candidates = [
+            { type: 'audio/webm;codecs=opus', ext: 'webm' },
+            { type: 'audio/webm', ext: 'webm' },
+            { type: 'audio/mp4', ext: 'mp4' },
+            { type: 'audio/ogg;codecs=opus', ext: 'ogg' },
+        ];
+        for (const candidate of candidates) {
+            if (
+                typeof MediaRecorder !== 'undefined' &&
+                MediaRecorder.isTypeSupported(candidate.type)
+            ) {
+                return candidate;
+            }
+        }
+        return { type: '', ext: 'webm' };
+    };
+
+    const level = (): number => {
+        const analyser = analyserRef.current;
+        if (!analyser) return 0;
+        const buffer = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(buffer);
+        let sum = 0;
+        for (let i = 0; i < buffer.length; i++) {
+            const value = (buffer[i] - 128) / 128;
+            sum += value * value;
+        }
+        return Math.sqrt(sum / buffer.length);
+    };
+
+    const setMicEnabled = (enabled: boolean) => {
+        streamRef.current?.getAudioTracks().forEach((track) => {
+            track.enabled = enabled;
+        });
+    };
+
+    const clearVad = () => {
+        if (vadRef.current) {
+            clearInterval(vadRef.current);
+            vadRef.current = null;
         }
     };
 
-    const start = async () => {
-        setError('');
-        setTranscript('');
-        setSeconds(0);
-        chunksRef.current = [];
+    const endUtterance = () => {
+        if (endingRef.current) return;
+        endingRef.current = true;
+        clearVad();
+        const recorder = recorderRef.current;
+        if (recorder && recorder.state !== 'inactive') recorder.stop();
+    };
 
+    const resumeListening = () => {
+        if (activeRef.current) startListening();
+    };
+
+    const startListening = () => {
+        if (!activeRef.current) return;
+        endingRef.current = false;
+        chunksRef.current = [];
+        setMicEnabled(true);
+        setPhase('listening');
+
+        const recorder = new MediaRecorder(
+            streamRef.current as MediaStream,
+            mimeRef.current.type ? { mimeType: mimeRef.current.type } : undefined,
+        );
+        recorderRef.current = recorder;
+        recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) chunksRef.current.push(event.data);
+        };
+        recorder.onstop = () => {
+            const blob = new Blob(chunksRef.current, {
+                type: mimeRef.current.type || 'audio/webm',
+            });
+            void handleUtterance(blob);
+        };
+        recorder.start();
+
+        const SILENCE_MS = 1000;
+        const MAX_MS = 30000;
+        const THRESHOLD = 0.02;
+        const turnStart = performance.now();
+        let lastVoice = turnStart;
+        let voiceFrames = 0;
+        let speechStarted = false;
+
+        vadRef.current = setInterval(() => {
+            if (!activeRef.current) return;
+            const now = performance.now();
+            if (level() > THRESHOLD) {
+                voiceFrames++;
+                lastVoice = now;
+                if (voiceFrames >= 3) speechStarted = true;
+            } else {
+                voiceFrames = 0;
+            }
+            if (speechStarted && now - lastVoice >= SILENCE_MS) {
+                endUtterance();
+            } else if (speechStarted && now - turnStart >= MAX_MS) {
+                endUtterance();
+            }
+        }, 60);
+    };
+
+    const transcribe = async (blob: Blob): Promise<string> => {
+        const form = new FormData();
+        form.append('audio', blob, `speech.${mimeRef.current.ext}`);
+        const response = await postForm('/speech/transcribe', form);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.message || 'Transcription failed.');
+        }
+        return String(data.text || '');
+    };
+
+    const agentReply = async (history: VoiceTurn[]): Promise<string> => {
+        const response = await postJson('/chat', {
+            messages: history.map((turn) => ({
+                role: turn.role,
+                content: turn.content,
+            })),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.message || 'Agent error.');
+        }
+        return String(data.reply || '');
+    };
+
+    const speak = async (text: string): Promise<void> => {
+        if (!activeRef.current) return;
+        setPhase('speaking');
+        try {
+            const response = await postJson('/speech/speak', {
+                text: text.slice(0, 4000),
+            });
+            if (!response.ok) {
+                resumeListening();
+                return;
+            }
+            const url = URL.createObjectURL(await response.blob());
+            const audio = new Audio(url);
+            audioElRef.current = audio;
+            audio.onended = () => {
+                URL.revokeObjectURL(url);
+                resumeListening();
+            };
+            audio.onerror = () => {
+                URL.revokeObjectURL(url);
+                resumeListening();
+            };
+            await audio.play().catch(() => resumeListening());
+        } catch {
+            resumeListening();
+        }
+    };
+
+    const handleUtterance = async (blob: Blob) => {
+        if (!activeRef.current) return;
+        setMicEnabled(false);
+        setPhase('thinking');
+
+        let text = '';
+        try {
+            text = (await transcribe(blob)).trim();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Transcription failed.');
+            resumeListening();
+            return;
+        }
+
+        if (text === '') {
+            resumeListening();
+            return;
+        }
+        setError('');
+
+        const withUser: VoiceTurn[] = [
+            ...historyRef.current,
+            { role: 'user', content: text },
+        ];
+        historyRef.current = withUser;
+        setTurns(withUser);
+
+        let reply = '';
+        try {
+            reply = (await agentReply(withUser)).trim();
+        } catch {
+            reply = '';
+        }
+        reply =
+            reply ||
+            'Sorry, I had trouble responding. Could you say that again?';
+
+        const withReply: VoiceTurn[] = [
+            ...historyRef.current,
+            { role: 'assistant', content: reply },
+        ];
+        historyRef.current = withReply;
+        setTurns(withReply);
+
+        await speak(reply);
+    };
+
+    const begin = async () => {
+        setError('');
+        setTurns([]);
+        historyRef.current = [];
+        mimeRef.current = pickMime();
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
             });
             streamRef.current = stream;
-
-            const recorder = new MediaRecorder(stream);
-            recorderRef.current = recorder;
-
-            recorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    chunksRef.current.push(event.data);
-                }
-            };
-            recorder.onstop = () => {
-                stopStream();
-                const blob = new Blob(chunksRef.current, {
-                    type: recorder.mimeType || 'audio/webm',
-                });
-                void transcribe(blob);
-            };
-
-            recorder.start();
-            setStatus('recording');
-            timerRef.current = setInterval(
-                () => setSeconds((s) => s + 1),
-                1000,
-            );
+            const context = new AudioContext();
+            audioCtxRef.current = context;
+            if (context.state === 'suspended') {
+                await context.resume();
+            }
+            const source = context.createMediaStreamSource(stream);
+            const analyser = context.createAnalyser();
+            analyser.fftSize = 1024;
+            source.connect(analyser);
+            analyserRef.current = analyser;
+            activeRef.current = true;
+            startListening();
         } catch {
             setError(
                 'Microphone access was blocked. Allow mic permission and try again.',
             );
-            setStatus('error');
+            setPhase('error');
         }
     };
 
-    const stop = () => {
-        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-            setStatus('transcribing');
-            recorderRef.current.stop();
-        }
-    };
-
-    const transcribe = async (blob: Blob) => {
-        try {
-            const form = new FormData();
-            const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
-            form.append('audio', blob, `recording.${extension}`);
-
-            const response = await postForm('/speech/transcribe', form);
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                setError(data.message || 'Could not transcribe the recording.');
-                setStatus('error');
-
-                return;
+    const end = () => {
+        activeRef.current = false;
+        clearVad();
+        const recorder = recorderRef.current;
+        if (recorder && recorder.state !== 'inactive') {
+            try {
+                recorder.stop();
+            } catch {
+                // already stopped
             }
-
-            setTranscript(String(data.text || '').trim());
-            setStatus('done');
-        } catch {
-            setError('Network error while transcribing.');
-            setStatus('error');
         }
+        audioElRef.current?.pause();
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        void audioCtxRef.current?.close().catch(() => {});
+        streamRef.current = null;
+        audioCtxRef.current = null;
+        analyserRef.current = null;
+        setPhase('idle');
     };
 
     useEffect(() => {
-        void start();
+        void begin();
 
-        return () => {
-            if (
-                recorderRef.current &&
-                recorderRef.current.state !== 'inactive'
-            ) {
-                recorderRef.current.stop();
-            }
-            stopStream();
-        };
+        return () => end();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        transcriptRef.current?.scrollTo({
+            top: transcriptRef.current.scrollHeight,
+            behavior: 'smooth',
+        });
+    }, [turns, phase]);
+
+    if (phase === 'error' && !activeRef.current) {
+        return (
+            <div
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 18,
+                    padding: 24,
+                }}
+            >
+                <p
+                    style={{
+                        maxWidth: 420,
+                        textAlign: 'center',
+                        color: C.muted,
+                    }}
+                >
+                    {error}
+                </p>
+                <button
+                    type="button"
+                    onClick={() => void begin()}
+                    style={primaryButton()}
+                >
+                    <Mic size={16} />
+                    Try again
+                </button>
+            </div>
+        );
+    }
+
+    const statusLabel =
+        phase === 'listening'
+            ? 'Listening…'
+            : phase === 'thinking'
+              ? 'Thinking…'
+              : phase === 'speaking'
+                ? 'Speaking…'
+                : 'Connecting…';
 
     return (
         <div
@@ -523,167 +745,163 @@ function VoiceMode({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px',
-                gap: 22,
+                minHeight: 0,
+                padding: '8px 24px 24px',
             }}
         >
-            {/* Mic / status visual */}
             <div
                 style={{
                     position: 'relative',
-                    width: 116,
-                    height: 116,
+                    width: 132,
+                    height: 132,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    marginTop: 8,
                 }}
             >
-                {status === 'recording' &&
+                {phase === 'listening' &&
                     [0, 0.6, 1.2].map((delay) => (
                         <span
                             key={delay}
                             style={{
                                 position: 'absolute',
-                                inset: 18,
+                                inset: 26,
                                 borderRadius: '50%',
-                                background: 'rgba(16,130,91,0.35)',
+                                background: 'rgba(16,130,91,0.32)',
                                 animation: `pl-pulse 2.2s ease-out ${delay}s infinite`,
                             }}
                         />
                     ))}
                 <span
+                    className={phase === 'speaking' ? 'pl-breathe' : undefined}
                     style={{
                         position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: 80,
-                        height: 80,
+                        width: 88,
+                        height: 88,
                         borderRadius: '50%',
-                        background:
-                            status === 'error'
-                                ? '#F1E2E0'
-                                : `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-                        color: status === 'error' ? C.danger : '#fff',
+                        background: `radial-gradient(circle at 35% 28%, #6FC0A2 0%, ${C.green} 52%, #0C5A41 100%)`,
+                        color: '#fff',
+                        boxShadow:
+                            'inset 0 -8px 18px rgba(0,0,0,0.28), inset 0 6px 12px rgba(255,255,255,0.45)',
                     }}
                 >
-                    {status === 'transcribing' ? (
+                    {phase === 'thinking' ? (
                         <Loader2 className="pl-spin" size={30} />
-                    ) : status === 'error' ? (
-                        <X size={30} />
+                    ) : phase === 'speaking' ? (
+                        <Volume2 size={30} />
                     ) : (
                         <Mic size={30} />
                     )}
                 </span>
             </div>
 
-            {status === 'recording' && (
-                <>
-                    <div style={{ textAlign: 'center' }}>
-                        <p style={{ fontSize: 18, fontWeight: 600 }}>
-                            Listening…
-                        </p>
-                        <p style={{ color: C.muted, marginTop: 4 }}>
-                            {formatTime(seconds)} · speak your event idea
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={stop}
-                        style={primaryButton()}
-                    >
-                        <Square size={16} fill="#fff" />
-                        Stop & transcribe
-                    </button>
-                </>
+            <p style={{ marginTop: 18, fontSize: 17, fontWeight: 600 }}>
+                {statusLabel}
+            </p>
+            <p
+                style={{
+                    marginTop: 4,
+                    fontSize: 13,
+                    color: C.faint,
+                    minHeight: 18,
+                }}
+            >
+                {phase === 'speaking'
+                    ? 'Mic muted while I speak'
+                    : phase === 'listening'
+                      ? 'Just talk — I’ll reply when you pause'
+                      : ' '}
+            </p>
+            {error !== '' && (
+                <p style={{ marginTop: 4, fontSize: 13, color: C.danger }}>
+                    {error}
+                </p>
             )}
 
-            {status === 'transcribing' && (
-                <p style={{ fontSize: 17, fontWeight: 600 }}>Transcribing…</p>
-            )}
-
-            {status === 'error' && (
-                <>
+            <div
+                ref={transcriptRef}
+                style={{
+                    width: '100%',
+                    maxWidth: 620,
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    margin: '18px 0',
+                }}
+            >
+                {turns.length === 0 && (
                     <p
                         style={{
-                            maxWidth: 420,
-                            textAlign: 'center',
-                            color: C.muted,
-                        }}
-                    >
-                        {error}
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => void start()}
-                        style={primaryButton()}
-                    >
-                        <Mic size={16} />
-                        Try again
-                    </button>
-                </>
-            )}
-
-            {status === 'done' && (
-                <div style={{ width: '100%', maxWidth: 560 }}>
-                    <p
-                        style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
+                            margin: 'auto',
                             color: C.faint,
-                            marginBottom: 8,
+                            fontSize: 14,
                         }}
                     >
-                        Transcript
+                        Say hello to get started…
                     </p>
+                )}
+                {turns.map((turn, index) => (
                     <div
-                        style={{
-                            padding: '16px 18px',
-                            borderRadius: 14,
-                            border: `1px solid ${C.border}`,
-                            background: C.card,
-                            fontSize: 15.5,
-                            lineHeight: 1.6,
-                            minHeight: 64,
-                            color: transcript ? C.ink : C.faint,
-                        }}
-                    >
-                        {transcript || 'Nothing was picked up. Try again.'}
-                    </div>
-                    <div
+                        key={index}
                         style={{
                             display: 'flex',
-                            gap: 10,
-                            marginTop: 16,
-                            justifyContent: 'center',
+                            justifyContent:
+                                turn.role === 'user' ? 'flex-end' : 'flex-start',
                         }}
                     >
-                        <button
-                            type="button"
-                            onClick={() => void start()}
-                            style={secondaryButton()}
+                        <div
+                            style={{
+                                maxWidth: '84%',
+                                padding: '10px 14px',
+                                borderRadius: 14,
+                                fontSize: 14.5,
+                                lineHeight: 1.5,
+                                whiteSpace: 'pre-wrap',
+                                background:
+                                    turn.role === 'user' ? C.greenTint : C.card,
+                                border:
+                                    turn.role === 'user'
+                                        ? 'none'
+                                        : `1px solid ${C.border}`,
+                                color: C.ink,
+                            }}
                         >
-                            <Mic size={16} />
-                            Record again
-                        </button>
-                        <button
-                            type="button"
-                            disabled={!transcript}
-                            onClick={() => onUseTranscript(transcript)}
-                            style={primaryButton(!transcript)}
-                        >
-                            Continue in chat
-                            <ArrowUp
-                                size={16}
-                                style={{ transform: 'rotate(45deg)' }}
-                            />
-                        </button>
+                            {turn.content}
+                        </div>
                     </div>
-                </div>
-            )}
+                ))}
+            </div>
+
+            <button
+                type="button"
+                onClick={() => {
+                    end();
+                    onExit();
+                }}
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '11px 22px',
+                    borderRadius: 999,
+                    border: `1px solid ${C.border}`,
+                    background: C.card,
+                    color: C.danger,
+                    fontSize: 14.5,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                }}
+            >
+                <X size={17} />
+                End conversation
+            </button>
         </div>
     );
 }
@@ -1205,27 +1423,4 @@ function primaryButton(disabled = false): React.CSSProperties {
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.45 : 1,
     };
-}
-
-function secondaryButton(): React.CSSProperties {
-    return {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '12px 20px',
-        borderRadius: 11,
-        border: `1px solid ${C.border}`,
-        background: C.card,
-        color: C.ink,
-        fontSize: 15,
-        fontWeight: 600,
-        cursor: 'pointer',
-    };
-}
-
-function formatTime(totalSeconds: number): string {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
