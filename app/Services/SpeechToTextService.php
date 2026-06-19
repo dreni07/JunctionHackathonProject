@@ -31,7 +31,7 @@ class SpeechToTextService
      *
      * @param  string|null  $language  Optional ISO-639-1 hint (e.g. "en", "sq").
      */
-    public function transcribe(string $audioPath, ?string $language = null): string
+    public function transcribe(string $audioPath, ?string $language = null, ?string $filename = null): string
     {
         if (! $this->isConfigured()) {
             throw new RuntimeException('OPENAI_API_KEY is not set.');
@@ -47,9 +47,12 @@ class SpeechToTextService
             $payload['language'] = $language;
         }
 
+        // OpenAI detects the audio container from the filename extension, so it
+        // must be a real name (e.g. "audio.webm") — not the extension-less PHP
+        // upload temp path, which yields a 400 "Unrecognized file format".
         $response = Http::withToken($this->apiKey)
             ->timeout($this->timeout)
-            ->attach('file', (string) file_get_contents($audioPath), basename($audioPath))
+            ->attach('file', (string) file_get_contents($audioPath), $filename ?: basename($audioPath))
             ->post($this->baseUrl.'/audio/transcriptions', $payload);
 
         if ($response->failed()) {
@@ -72,6 +75,9 @@ class SpeechToTextService
      */
     public function transcribeUploadedFile(UploadedFile $file, ?string $language = null): string
     {
-        return $this->transcribe($file->getRealPath(), $language);
+        $extension = $file->guessExtension()
+            ?: ($file->getClientOriginalExtension() ?: 'webm');
+
+        return $this->transcribe($file->getRealPath(), $language, 'audio.'.$extension);
     }
 }
