@@ -32,7 +32,7 @@ class OperationalChangePollController extends Controller
                 'action' => $change->action,
                 'summary' => $change->summary,
                 'payload' => $change->payload,
-                'occurred_at' => $change->occurred_at?->toIso8601String(),
+                'occurred_at' => $change->occurred_at->toIso8601String(),
             ])
             ->values()
             ->all();

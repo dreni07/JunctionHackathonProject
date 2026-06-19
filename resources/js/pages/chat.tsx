@@ -2,7 +2,10 @@ import { Head, Link } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 
 function getCookie(name: string): string {
-    const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+    const match = document.cookie.match(
+        new RegExp('(^|; )' + name + '=([^;]*)'),
+    );
+
     return match ? decodeURIComponent(match[2]) : '';
 }
 
@@ -20,18 +23,24 @@ export default function Chat() {
     const endRef = useRef<HTMLDivElement>(null);
 
     function scrollToBottom() {
-        requestAnimationFrame(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }));
+        requestAnimationFrame(() =>
+            endRef.current?.scrollIntoView({ behavior: 'smooth' }),
+        );
     }
 
     async function send(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         const trimmed = input.trim();
+
         if (!trimmed || processing) {
             return;
         }
 
-        const next: Message[] = [...messages, { role: 'user', content: trimmed }];
+        const next: Message[] = [
+            ...messages,
+            { role: 'user', content: trimmed },
+        ];
         setMessages(next);
         setInput('');
         setError(null);
@@ -48,7 +57,10 @@ export default function Chat() {
                     'X-XSRF-TOKEN': getCookie('XSRF-TOKEN'),
                 },
                 body: JSON.stringify({
-                    messages: next.map((m) => ({ role: m.role, content: m.content })),
+                    messages: next.map((m) => ({
+                        role: m.role,
+                        content: m.content,
+                    })),
                 }),
             });
 
@@ -56,12 +68,17 @@ export default function Chat() {
 
             if (!res.ok) {
                 setError(data?.message ?? 'The assistant failed to respond.');
+
                 return;
             }
 
             setMessages([
                 ...next,
-                { role: 'assistant', content: data.reply ?? '', tools: data.tools_used ?? [] },
+                {
+                    role: 'assistant',
+                    content: data.reply ?? '',
+                    tools: data.tools_used ?? [],
+                },
             ]);
             scrollToBottom();
         } catch {
@@ -77,20 +94,29 @@ export default function Chat() {
             <div className="mx-auto flex min-h-screen max-w-2xl flex-col p-6 text-[#1b1b18] dark:text-[#EDEDEC]">
                 <header className="mb-4 flex items-center justify-between">
                     <h1 className="text-xl font-semibold">Study Assistant</h1>
-                    <Link href="/documents" className="text-sm text-neutral-500 hover:underline">
+                    <Link
+                        href="/documents"
+                        className="text-sm text-neutral-500 hover:underline"
+                    >
                         Library →
                     </Link>
                 </header>
 
                 <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                     {messages.length === 0 && (
-                        <p className="text-sm text-neutral-500">Ask me anything to get started.</p>
+                        <p className="text-sm text-neutral-500">
+                            Ask me anything to get started.
+                        </p>
                     )}
 
                     {messages.map((message, index) => (
                         <div
                             key={index}
-                            className={message.role === 'user' ? 'text-right' : 'text-left'}
+                            className={
+                                message.role === 'user'
+                                    ? 'text-right'
+                                    : 'text-left'
+                            }
                         >
                             <span
                                 className={
@@ -102,22 +128,28 @@ export default function Chat() {
                             >
                                 {message.content}
                             </span>
-                            {message.role === 'assistant' && message.tools && message.tools.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                    {message.tools.map((tool, i) => (
-                                        <span
-                                            key={i}
-                                            className="rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300"
-                                        >
-                                            🔧 {tool}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                            {message.role === 'assistant' &&
+                                message.tools &&
+                                message.tools.length > 0 && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                        {message.tools.map((tool, i) => (
+                                            <span
+                                                key={i}
+                                                className="rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300"
+                                            >
+                                                🔧 {tool}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                         </div>
                     ))}
 
-                    {processing && <p className="text-left text-sm text-neutral-400">Thinking…</p>}
+                    {processing && (
+                        <p className="text-left text-sm text-neutral-400">
+                            Thinking…
+                        </p>
+                    )}
                     <div ref={endRef} />
                 </div>
 

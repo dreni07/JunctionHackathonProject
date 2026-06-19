@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AccountType;
 use App\Enums\RoleName;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -24,6 +25,9 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property int $id
  * @property string $name
  * @property string $email
+ * @property AccountType|null $account_type
+ * @property int|null $tenant_id
+ * @property string|null $worker_role
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -33,7 +37,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password', 'organization_id'])]
+#[Fillable(['name', 'email', 'password', 'organization_id', 'account_type', 'tenant_id', 'worker_role'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
@@ -50,6 +54,7 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'account_type' => AccountType::class,
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
@@ -72,6 +77,32 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * The tenant (Pyramid branch) an operational worker signs into.
+     *
+     * @return BelongsTo<Tenant, $this>
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * Whether this account signs in through the organization door.
+     */
+    public function isOrganization(): bool
+    {
+        return $this->account_type === AccountType::Organization;
+    }
+
+    /**
+     * Whether this account is a tenant-based operational worker.
+     */
+    public function isOperational(): bool
+    {
+        return $this->account_type === AccountType::Operational;
     }
 
     /**

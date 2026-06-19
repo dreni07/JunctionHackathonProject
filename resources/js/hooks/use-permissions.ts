@@ -20,6 +20,7 @@ export function usePermissions() {
     /** True if the user has at least one of the given permission(s). */
     const can = (permission: string | string[]): boolean => {
         const wanted = Array.isArray(permission) ? permission : [permission];
+
         return wanted.some((p) => permissions.includes(p));
     };
 

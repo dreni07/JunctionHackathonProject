@@ -17,14 +17,14 @@ class DocumentFactory extends Factory
      */
     public function definition(): array
     {
-        $title = fake()->sentence(4);
+        $title = $this->faker->sentence(4);
 
         return [
             'title' => rtrim($title, '.'),
-            'original_filename' => fake()->slug(3).'.pdf',
-            'source_type' => fake()->randomElement(['image', 'pdf']),
-            'page_count' => fake()->numberBetween(1, 12),
-            'full_text' => fake()->paragraphs(3, true),
+            'original_filename' => $this->faker->slug(3).'.pdf',
+            'source_type' => $this->faker->randomElement(['image', 'pdf']),
+            'page_count' => $this->faker->numberBetween(1, 12),
+            'full_text' => $this->faker->paragraphs(3, true),
         ];
     }
 }

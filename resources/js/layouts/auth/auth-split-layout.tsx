@@ -49,14 +49,14 @@ export default function AuthSplitLayout({
 
                 {/* Middle: pitch */}
                 <div className="relative z-10 max-w-md">
-                    <h2 className="text-balance text-4xl font-semibold leading-tight tracking-tight">
+                    <h2 className="text-4xl leading-tight font-semibold tracking-tight text-balance">
                         Turn every event request into an{' '}
                         <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-orange-200 bg-clip-text text-transparent">
                             operational plan
                         </span>
                         .
                     </h2>
-                    <p className="mt-5 text-balance text-sm leading-relaxed text-white/60">
+                    <p className="mt-5 text-sm leading-relaxed text-balance text-white/60">
                         From inquiry to execution — spaces, inventory,
                         quotations, conflicts and task lists, coordinated in one
                         place. No more scattered emails and spreadsheets.

@@ -19,12 +19,12 @@ class OperationalChangeFactory extends Factory
     {
         return [
             'model_type' => 'Asset',
-            'model_id' => fake()->uuid(),
+            'model_id' => $this->faker->uuid(),
             'action' => 'updated',
             'summary' => 'Asset "Demo chair" was updated (status).',
             'payload' => [
                 'model_type' => 'Asset',
-                'model_id' => fake()->uuid(),
+                'model_id' => $this->faker->uuid(),
                 'action' => 'updated',
                 'changes' => ['status' => 'in_use'],
             ],

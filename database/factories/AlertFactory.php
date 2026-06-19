@@ -22,10 +22,10 @@ class AlertFactory extends Factory
     {
         return [
             'source' => AlertSource::Agent,
-            'severity' => fake()->randomElement(RiskLevel::cases()),
+            'severity' => $this->faker->randomElement(RiskLevel::cases()),
             'status' => AlertStatus::Unread,
-            'title' => fake()->sentence(3),
-            'message' => fake()->paragraph(),
+            'title' => $this->faker->sentence(3),
+            'message' => $this->faker->paragraph(),
             'agent_name' => 'FeasibilityAgent',
         ];
     }

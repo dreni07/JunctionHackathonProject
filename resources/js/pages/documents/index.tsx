@@ -8,8 +8,14 @@ type DocumentListItem = {
     created_at: string;
 };
 
-export default function DocumentsIndex({ documents }: { documents: DocumentListItem[] }) {
-    const { setData, post, processing, errors } = useForm<{ file: File | null }>({ file: null });
+export default function DocumentsIndex({
+    documents,
+}: {
+    documents: DocumentListItem[];
+}) {
+    const { setData, post, processing, errors } = useForm<{
+        file: File | null;
+    }>({ file: null });
 
     function submit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -23,7 +29,8 @@ export default function DocumentsIndex({ documents }: { documents: DocumentListI
                 <header className="space-y-1">
                     <h1 className="text-2xl font-semibold">Document Library</h1>
                     <p className="text-sm text-neutral-500">
-                        Upload a study note, paper, or article (image or PDF). We extract the text and save it.
+                        Upload a study note, paper, or article (image or PDF).
+                        We extract the text and save it.
                     </p>
                 </header>
 
@@ -34,10 +41,14 @@ export default function DocumentsIndex({ documents }: { documents: DocumentListI
                     <input
                         type="file"
                         accept="image/*,application/pdf"
-                        onChange={(e) => setData('file', e.target.files?.[0] ?? null)}
+                        onChange={(e) =>
+                            setData('file', e.target.files?.[0] ?? null)
+                        }
                         className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-neutral-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-neutral-700 dark:file:bg-white dark:file:text-black"
                     />
-                    {errors.file && <p className="text-sm text-red-600">{errors.file}</p>}
+                    {errors.file && (
+                        <p className="text-sm text-red-600">{errors.file}</p>
+                    )}
 
                     <button
                         type="submit"
@@ -50,11 +61,14 @@ export default function DocumentsIndex({ documents }: { documents: DocumentListI
 
                 <section className="space-y-3">
                     <h2 className="text-sm font-medium text-neutral-500">
-                        {documents.length} document{documents.length === 1 ? '' : 's'}
+                        {documents.length} document
+                        {documents.length === 1 ? '' : 's'}
                     </h2>
 
                     {documents.length === 0 ? (
-                        <p className="text-sm text-neutral-500">Nothing uploaded yet.</p>
+                        <p className="text-sm text-neutral-500">
+                            Nothing uploaded yet.
+                        </p>
                     ) : (
                         <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
                             {documents.map((doc) => (
@@ -63,9 +77,12 @@ export default function DocumentsIndex({ documents }: { documents: DocumentListI
                                         href={`/documents/${doc.id}`}
                                         className="flex items-center justify-between gap-4 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900"
                                     >
-                                        <span className="truncate font-medium">{doc.title}</span>
+                                        <span className="truncate font-medium">
+                                            {doc.title}
+                                        </span>
                                         <span className="shrink-0 text-xs text-neutral-500 uppercase">
-                                            {doc.source_type} · {doc.page_count}p
+                                            {doc.source_type} · {doc.page_count}
+                                            p
                                         </span>
                                     </Link>
                                 </li>

@@ -14,6 +14,8 @@ services:
       # Passed through from your local .env so the app can reach Groq/Gemini/Qdrant.
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       QWDRANT_ENDPOINT: ${QWDRANT_ENDPOINT:-}
       QWDRANT_API_KEY: ${QWDRANT_API_KEY:-}

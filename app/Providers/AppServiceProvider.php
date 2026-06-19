@@ -14,6 +14,7 @@ use App\Services\DocumentOcrService;
 use App\Services\EmbeddingService;
 use App\Services\GroqService;
 use App\Services\OcrService;
+use App\Services\PdfTextExtractor;
 use App\Services\QdrantService;
 use App\Services\VectorStore;
 use Carbon\CarbonImmutable;
@@ -30,6 +31,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(PdfTextExtractor::class, function (): PdfTextExtractor {
+            return new PdfTextExtractor(
+                documentOcr: $this->app->make(DocumentOcrService::class),
+                pdftotextBinary: (string) config('pdf.pdftotext_binary'),
+                timeout: (int) config('pdf.timeout'),
+            );
+        });
+
         $this->app->singleton(QdrantService::class, function (): QdrantService {
             return new QdrantService(
                 endpoint: config('qdrant.endpoint'),

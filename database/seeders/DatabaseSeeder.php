@@ -2,10 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Enums\AccountType;
 use App\Enums\RoleName;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -18,7 +20,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RolePermissionSeeder::class);
 
-        // One demo account per role (all share the password "password").
+        // One demo account per role (all share the password "password"). These
+        // sign in through the organization door.
         $accounts = [
             ['name' => 'Olta Organizer', 'email' => 'organizer@pyramid.test', 'role' => RoleName::Organizer],
             ['name' => 'Ops Team', 'email' => 'operations@pyramid.test', 'role' => RoleName::Operations],
@@ -26,12 +29,17 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            $user = User::factory()->create([
+            $user = User::create([
                 'name' => $account['name'],
                 'email' => $account['email'],
+                'account_type' => AccountType::Organization->value,
+                'password' => Hash::make('password'),
             ]);
 
             $user->assignRole($account['role']);
         }
+
+        // Tenants (Pyramid branches) and their operational demo workers.
+        $this->call(TenantSeeder::class);
     }
 }

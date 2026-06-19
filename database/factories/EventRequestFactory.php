@@ -20,17 +20,17 @@ class EventRequestFactory extends Factory
      */
     public function definition(): array
     {
-        $start = fake()->dateTimeBetween('+1 week', '+2 months');
+        $start = $this->faker->dateTimeBetween('+1 week', '+2 months');
 
         return [
             'submitted_by' => User::factory(),
-            'title' => fake()->sentence(4),
-            'description' => fake()->paragraph(),
-            'event_type' => fake()->randomElement(EventType::cases()),
-            'attendees' => fake()->numberBetween(30, 250),
+            'title' => $this->faker->sentence(4),
+            'description' => $this->faker->paragraph(),
+            'event_type' => $this->faker->randomElement(EventType::cases()),
+            'attendees' => $this->faker->numberBetween(30, 250),
             'preferred_start_at' => $start,
             'preferred_end_at' => (clone $start)->modify('+4 hours'),
-            'raw_intake' => fake()->paragraph(),
+            'raw_intake' => $this->faker->paragraph(),
             'status' => EventRequestStatus::Submitted,
         ];
     }

@@ -19,28 +19,54 @@ type PageProps = {
     auth: Auth;
 };
 
-export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
-    const { auth } = usePage<PageProps>().props;
-    const [seconds, setSeconds] = useState(resendCooldown);
+type ResendCooldownButtonProps = {
+    resendCooldown: number;
+    processing: boolean;
+    errors: Record<string, string | undefined>;
+};
 
-    // Re-sync whenever the server reports a new cooldown (e.g. after a send).
-    useEffect(() => {
-        setSeconds(resendCooldown);
-    }, [resendCooldown]);
+function ResendCooldownButton({
+    resendCooldown,
+    processing,
+    errors,
+}: ResendCooldownButtonProps) {
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const seconds = Math.max(0, resendCooldown - elapsedSeconds);
+    const waiting = seconds > 0;
 
-    // Tick down to zero.
     useEffect(() => {
         if (seconds <= 0) {
             return;
         }
+
         const timer = setTimeout(
-            () => setSeconds((s) => Math.max(0, s - 1)),
+            () => setElapsedSeconds((elapsed) => elapsed + 1),
             1000,
         );
+
         return () => clearTimeout(timer);
     }, [seconds]);
 
-    const waiting = seconds > 0;
+    return (
+        <>
+            <InputError message={errors.email} />
+
+            <Button
+                type="submit"
+                disabled={processing || waiting}
+                className="w-full"
+            >
+                {processing && <Spinner />}
+                {waiting
+                    ? `Resend available in ${seconds}s`
+                    : 'Resend verification email'}
+            </Button>
+        </>
+    );
+}
+
+export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
+    const { auth } = usePage<PageProps>().props;
 
     return (
         <>
@@ -52,12 +78,16 @@ export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
                         <MailCheck className="size-5" />
                     </span>
                     <p className="text-sm text-muted-foreground">
-                        We sent a verification <strong className="text-foreground">link</strong>{' '}
-                        (not a numeric code) to{' '}
-                        <strong className="text-foreground">{auth.user?.email}</strong>.
-                        Check spam if you do not see it. The link stays valid for{' '}
-                        <strong className="text-foreground">15 minutes</strong> —
-                        after that, request a fresh one below.
+                        We sent a verification{' '}
+                        <strong className="text-foreground">link</strong> (not a
+                        numeric code) to{' '}
+                        <strong className="text-foreground">
+                            {auth.user?.email}
+                        </strong>
+                        . Check spam if you do not see it. The link stays valid
+                        for{' '}
+                        <strong className="text-foreground">15 minutes</strong>{' '}
+                        — after that, request a fresh one below.
                     </p>
                 </div>
 
@@ -71,18 +101,12 @@ export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
                 <Form {...send.form()} className="flex flex-col gap-4">
                     {({ processing, errors }) => (
                         <>
-                            <InputError message={errors.email} />
-
-                            <Button
-                                type="submit"
-                                disabled={processing || waiting}
-                                className="w-full"
-                            >
-                                {processing && <Spinner />}
-                                {waiting
-                                    ? `Resend available in ${seconds}s`
-                                    : 'Resend verification email'}
-                            </Button>
+                            <ResendCooldownButton
+                                key={resendCooldown}
+                                resendCooldown={resendCooldown}
+                                processing={processing}
+                                errors={errors}
+                            />
 
                             <TextLink
                                 href={logout()}
