@@ -4,12 +4,8 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
-use App\Enums\AccountType;
-use App\Models\Tenant;
-use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -34,7 +30,6 @@ class FortifyServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureActions();
-        $this->configureAuthentication();
         $this->configureViews();
         $this->configureRateLimiting();
     }
@@ -49,50 +44,16 @@ class FortifyServiceProvider extends ServiceProvider
     }
 
     /**
-     * Resolve the user for a password login, enforcing the multi-step
-     * context the sign-in form collects:
-     *  - the organization door rejects operational workers, and
-     *  - the operational door requires the chosen tenant + worker role to
-     *    match the account on record.
-     */
-    private function configureAuthentication(): void
-    {
-        Fortify::authenticateUsing(function (Request $request): ?User {
-            $user = User::where('email', $request->input(Fortify::username()))->first();
-
-            if (! $user || ! Hash::check((string) $request->input('password'), $user->password)) {
-                return null;
-            }
-
-            return match ($request->input('account_type')) {
-                AccountType::Operational->value => $this->matchesOperationalContext($user, $request) ? $user : null,
-                AccountType::Organization->value => $user->isOperational() ? null : $user,
-                default => $user,
-            };
-        });
-    }
-
-    /**
-     * Whether an operational worker picked the tenant and role on their record.
-     */
-    private function matchesOperationalContext(User $user, Request $request): bool
-    {
-        return $user->isOperational()
-            && (string) $user->tenant_id === (string) $request->input('tenant_id')
-            && $user->worker_role === $request->input('worker_role');
-    }
-
-    /**
      * Configure Fortify views.
      */
     private function configureViews(): void
     {
+        // Plain credential login. Fortify resolves the account by email and
+        // password; the user's tenant/role/account type already live on their
+        // record, so nothing extra is chosen at sign-in.
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
-            'tenants' => Tenant::query()
-                ->orderBy('id')
-                ->get(['id', 'title', 'description', 'roles']),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [

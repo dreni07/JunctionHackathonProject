@@ -24,6 +24,10 @@ createInertiaApp({
                 return null;
             case name.startsWith('pyramid/'):
                 return null;
+            case name === 'auth/login':
+                return null;
+            case name === 'auth/register':
+                return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
