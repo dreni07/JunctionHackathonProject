@@ -35,4 +35,22 @@ return [
         ],
     ],
 
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY', ''),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+        'model' => env('GROQ_MODEL', 'openai/gpt-oss-20b'),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GOOGLE_API_KEY', ''),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'embedding_model' => env('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
+    ],
+
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY', ''),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+    ],
+
 ];

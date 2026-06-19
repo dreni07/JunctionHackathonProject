@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Services\DocumentIndexer;
 use App\Services\DocumentOcrService;
 use App\Services\OcrService;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +16,7 @@ class DocumentController extends Controller
     public function __construct(
         private readonly OcrService $ocr,
         private readonly DocumentOcrService $documentOcr,
+        private readonly DocumentIndexer $indexer,
     ) {}
 
     /**
@@ -55,6 +57,9 @@ class DocumentController extends Controller
             'page_count' => $isPdf ? max(1, substr_count($fullText, "\n\n") + 1) : 1,
             'full_text' => $fullText,
         ]);
+
+        // Index into Qdrant for RAG (no-op if Gemini/Qdrant aren't configured).
+        $this->indexer->indexQuietly($document);
 
         return redirect()
             ->route('documents.show', $document)

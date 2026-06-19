@@ -2,7 +2,10 @@ import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 
 function getCookie(name: string): string {
-    const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+    const match = document.cookie.match(
+        new RegExp('(^|; )' + name + '=([^;]*)'),
+    );
+
     return match ? decodeURIComponent(match[2]) : '';
 }
 
@@ -14,7 +17,13 @@ type UploaderProps = {
     accept: string;
 };
 
-function Uploader({ title, description, endpoint, fieldName, accept }: UploaderProps) {
+function Uploader({
+    title,
+    description,
+    endpoint,
+    fieldName,
+    accept,
+}: UploaderProps) {
     const [file, setFile] = useState<File | null>(null);
     const [fileName, setFileName] = useState('');
     const [text, setText] = useState<string | null>(null);
@@ -34,6 +43,7 @@ function Uploader({ title, description, endpoint, fieldName, accept }: UploaderP
 
         if (!file) {
             setError('Please choose a file first.');
+
             return;
         }
 
@@ -58,7 +68,12 @@ function Uploader({ title, description, endpoint, fieldName, accept }: UploaderP
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data?.errors?.[fieldName]?.[0] ?? data?.message ?? 'Failed to extract text.');
+                setError(
+                    data?.errors?.[fieldName]?.[0] ??
+                        data?.message ??
+                        'Failed to extract text.',
+                );
+
                 return;
             }
 
@@ -88,7 +103,11 @@ function Uploader({ title, description, endpoint, fieldName, accept }: UploaderP
                         onChange={handleFile}
                         className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-neutral-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-neutral-700 dark:file:bg-white dark:file:text-black"
                     />
-                    {fileName && <span className="mt-1 block text-xs text-neutral-500">{fileName}</span>}
+                    {fileName && (
+                        <span className="mt-1 block text-xs text-neutral-500">
+                            {fileName}
+                        </span>
+                    )}
                 </label>
 
                 <button
@@ -121,7 +140,9 @@ export default function Welcome() {
             <div className="flex min-h-screen flex-col items-center bg-[#FDFDFC] p-6 text-[#1b1b18] lg:justify-center dark:bg-[#0a0a0a] dark:text-[#EDEDEC]">
                 <div className="w-full max-w-xl space-y-10 py-10">
                     <div className="space-y-1 text-center">
-                        <h1 className="text-2xl font-semibold">Tesseract OCR</h1>
+                        <h1 className="text-2xl font-semibold">
+                            Tesseract OCR
+                        </h1>
                         <p className="text-sm text-neutral-500">
                             Extract text from an image or a PDF document.
                         </p>

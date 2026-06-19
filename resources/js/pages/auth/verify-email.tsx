@@ -1,46 +1,128 @@
-// Components
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
+import { MailCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
+import type { Auth } from '@/types';
 
-export default function VerifyEmail({ status }: { status?: string }) {
+type Props = {
+    status?: string;
+    /** Seconds remaining before another email may be sent (server-enforced). */
+    resendCooldown?: number;
+};
+
+type PageProps = {
+    auth: Auth;
+};
+
+type ResendCooldownButtonProps = {
+    resendCooldown: number;
+    processing: boolean;
+    errors: Record<string, string | undefined>;
+};
+
+function ResendCooldownButton({
+    resendCooldown,
+    processing,
+    errors,
+}: ResendCooldownButtonProps) {
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const seconds = Math.max(0, resendCooldown - elapsedSeconds);
+    const waiting = seconds > 0;
+
+    useEffect(() => {
+        if (seconds <= 0) {
+            return;
+        }
+
+        const timer = setTimeout(
+            () => setElapsedSeconds((elapsed) => elapsed + 1),
+            1000,
+        );
+
+        return () => clearTimeout(timer);
+    }, [seconds]);
+
+    return (
+        <>
+            <InputError message={errors.email} />
+
+            <Button
+                type="submit"
+                disabled={processing || waiting}
+                className="w-full"
+            >
+                {processing && <Spinner />}
+                {waiting
+                    ? `Resend available in ${seconds}s`
+                    : 'Resend verification email'}
+            </Button>
+        </>
+    );
+}
+
+export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
+    const { auth } = usePage<PageProps>().props;
+
     return (
         <>
             <Head title="Email verification" />
 
-            {status === 'verification-link-sent' && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
-                    A new verification link has been sent to the email address
-                    you provided during registration.
+            <div className="flex flex-col gap-6">
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-4">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <MailCheck className="size-5" />
+                    </span>
+                    <p className="text-sm text-muted-foreground">
+                        We sent a verification{' '}
+                        <strong className="text-foreground">link</strong> (not a
+                        numeric code) to{' '}
+                        <strong className="text-foreground">
+                            {auth.user?.email}
+                        </strong>
+                        . Check spam if you do not see it. The link stays valid
+                        for{' '}
+                        <strong className="text-foreground">15 minutes</strong>{' '}
+                        — after that, request a fresh one below.
+                    </p>
                 </div>
-            )}
 
-            <Form {...send.form()} className="space-y-6 text-center">
-                {({ processing }) => (
-                    <>
-                        <Button disabled={processing} variant="secondary">
-                            {processing && <Spinner />}
-                            Resend verification email
-                        </Button>
-
-                        <TextLink
-                            href={logout()}
-                            className="mx-auto block text-sm"
-                        >
-                            Log out
-                        </TextLink>
-                    </>
+                {status === 'verification-link-sent' && (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        A new verification link has been sent to your email
+                        address.
+                    </div>
                 )}
-            </Form>
+
+                <Form {...send.form()} className="flex flex-col gap-4">
+                    {({ processing, errors }) => (
+                        <>
+                            <ResendCooldownButton
+                                key={resendCooldown}
+                                resendCooldown={resendCooldown}
+                                processing={processing}
+                                errors={errors}
+                            />
+
+                            <TextLink
+                                href={logout()}
+                                className="mx-auto block text-sm"
+                            >
+                                Log out
+                            </TextLink>
+                        </>
+                    )}
+                </Form>
+            </div>
         </>
     );
 }
 
 VerifyEmail.layout = {
-    title: 'Email verification',
-    description:
-        'Please verify your email address by clicking on the link we just emailed to you.',
+    title: 'Verify your email',
+    description: 'Click the link we just emailed you to activate your account.',
 };

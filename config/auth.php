@@ -103,6 +103,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Email Verification
+    |--------------------------------------------------------------------------
+    |
+    | The number of minutes a signed email-verification link stays valid.
+    | After this window the link expires and the user must request a fresh
+    | one from the "verify email" screen.
+    |
+    */
+
+    'verification' => [
+        'expire' => (int) env('AUTH_VERIFICATION_EXPIRE', 15),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Password Confirmation Timeout
     |--------------------------------------------------------------------------
     |
