@@ -20,21 +20,21 @@ test('organization accounts are redirected away from the operations dashboard pa
         ->assertRedirect(route('planner'));
 });
 
-test('operational workers are redirected from the organization dashboard to operations', function (): void {
+test('operational workers are redirected from the planner to operations', function (): void {
     $user = User::factory()->operational()->create();
     $user->syncRoles(RoleName::Operations);
 
     $this->actingAs($user)
-        ->get(route('dashboard'))
+        ->get(route('planner'))
         ->assertRedirect(route('operations.home'));
 });
 
-test('organization accounts can open the organization dashboard', function (): void {
+test('organization accounts can open the planner', function (): void {
     $user = User::factory()->organization()->create();
     $user->syncRoles(RoleName::Organizer);
 
     $this->actingAs($user)
-        ->get(route('dashboard'))
+        ->get(route('planner'))
         ->assertOk();
 });
 

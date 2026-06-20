@@ -50,11 +50,6 @@ Route::middleware(['auth'])->group(function (): void {
         Route::post('/speech/transcribe', [SpeechController::class, 'transcribe'])->name('speech.transcribe');
         Route::post('/speech/speak', [SpeechController::class, 'speak'])->name('speech.speak');
 
-        // Organization event planner and portfolio.
-        Route::get('dashboard', function () {
-            return Inertia\Inertia::render('dashboard');
-        })->name('dashboard');
-
         // Organization event viewer: their booked events, analytics + live readiness.
         Route::get('my-events', [MyEventController::class, 'index'])->name('my-events.index');
         Route::get('my-events/{event}', [MyEventController::class, 'show'])->name('my-events.show');

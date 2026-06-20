@@ -36,8 +36,6 @@ createInertiaApp({
                 return null;
             case name === 'auth/register':
                 return null;
-            case name === 'auth/verify-email':
-                return null;
             case name === 'auth/reset-password':
                 return null;
             case name.startsWith('auth/'):

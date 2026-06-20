@@ -150,7 +150,7 @@ export default function MyEventsIndex({
                     </span>
                 </div>
                 <Link
-                    href="/dashboard"
+                    href="/planner"
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -160,7 +160,7 @@ export default function MyEventsIndex({
                         textDecoration: 'none',
                     }}
                 >
-                    <ArrowLeft size={15} /> Dashboard
+                    <ArrowLeft size={15} /> Planner
                 </Link>
             </header>
 

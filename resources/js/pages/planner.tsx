@@ -48,6 +48,12 @@ const C = {
     amber: '#8A6D1C',
 };
 
+const KLEOPATRA_SCALE = 1.3;
+
+function scaleKleopatraSize(size: number): number {
+    return Math.round(size * KLEOPATRA_SCALE);
+}
+
 const css = `
 .pl-root{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif}
 .pl-root *{box-sizing:border-box}
@@ -94,7 +100,7 @@ const css = `
 .pl-spin{animation:pl-spin 1s linear infinite}
 @keyframes pl-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 .pl-breathe{animation:pl-breathe 1.4s ease-in-out infinite}
-.pl-ring{position:absolute;inset:0;margin:auto;width:108px;height:108px;border-radius:50%;background:conic-gradient(from 0deg, rgba(16,130,91,0) 0deg, rgba(16,130,91,0) 210deg, ${C.green} 340deg, rgba(16,130,91,0) 360deg);-webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));animation:pl-spin 0.9s linear infinite}
+.pl-ring{position:absolute;inset:0;margin:auto;width:${scaleKleopatraSize(108)}px;height:${scaleKleopatraSize(108)}px;border-radius:50%;background:conic-gradient(from 0deg, rgba(16,130,91,0) 0deg, rgba(16,130,91,0) 210deg, ${C.green} 340deg, rgba(16,130,91,0) 360deg);-webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));animation:pl-spin 0.9s linear infinite}
 @keyframes pl-bar{0%,100%{transform:scaleY(0.3)}50%{transform:scaleY(1)}}
 .pl-mic-ping{position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 0 rgba(16,130,91,0.45);animation:pl-micping 1.8s ease-out infinite}
 @keyframes pl-micping{0%{box-shadow:0 0 0 0 rgba(16,130,91,0.4)}100%{box-shadow:0 0 0 22px rgba(16,130,91,0)}}
@@ -1126,10 +1132,12 @@ function kleopatraSrc(phase: ConvoPhase): string {
 }
 
 function kleopatraFrameStyle(size: number): CSSProperties {
+    const scaled = scaleKleopatraSize(size);
+
     return {
         position: 'relative',
-        width: size,
-        height: size,
+        width: scaled,
+        height: scaled,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -1140,10 +1148,13 @@ function kleopatraFrameStyle(size: number): CSSProperties {
 }
 
 function kleopatraImageStyle(size: number): CSSProperties {
+    const scaled = scaleKleopatraSize(size);
+
     return {
-        width: size,
-        height: size,
+        width: scaled,
+        height: scaled,
         objectFit: 'contain',
+        flexShrink: 0,
         background: 'transparent',
         border: 'none',
         borderRadius: 0,
@@ -1686,8 +1697,8 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: 120,
-                        height: 120,
+                        width: scaleKleopatraSize(120),
+                        height: scaleKleopatraSize(120),
                         padding: 0,
                         border: 'none',
                         cursor: 'pointer',
@@ -1763,8 +1774,8 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
             <div
                 style={{
                     position: 'relative',
-                    width: 132,
-                    height: 132,
+                    width: scaleKleopatraSize(132),
+                    height: scaleKleopatraSize(132),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1777,7 +1788,7 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                             key={delay}
                             style={{
                                 position: 'absolute',
-                                inset: 14,
+                                inset: scaleKleopatraSize(14),
                                 borderRadius: '50%',
                                 background: 'rgba(16,130,91,0.3)',
                                 animation: `pl-pulse 2.2s ease-out ${delay}s infinite`,
@@ -2159,16 +2170,8 @@ function ChatMode({
                         {message.role === 'assistant' && (
                             <img
                                 src="/assets/kleopatra-listening.png?v=2"
-                                alt="Cleopatra"
-                                style={{
-                                    width: 36,
-                                    height: 36,
-                                    borderRadius: '50%',
-                                    objectFit: 'cover',
-                                    flex: 'none',
-                                    border: `1px solid ${C.border}`,
-                                    background: C.greenTint,
-                                }}
+                                alt="Kleopatra"
+                                style={kleopatraImageStyle(36)}
                             />
                         )}
                         <div

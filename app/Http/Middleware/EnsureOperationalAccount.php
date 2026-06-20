@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Restrict Pyramid back-office routes to tenant-based operational accounts.
- * External organization accounts must use the planner/dashboard instead.
+ * External organization accounts must use the planner instead.
  */
 class EnsureOperationalAccount
 {
