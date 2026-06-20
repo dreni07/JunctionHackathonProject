@@ -8,6 +8,8 @@ type Props = {
 
 const HERO_IMAGE = '/assets/pyramid.webp';
 const CARD_IMAGE = '/assets/pyramid-card.webp';
+const PYRAMID_TIRANA_COLORS_IMAGE = '/assets/pyramid-tirana-colors.jpg';
+const PYRAMID_ARTS_SCREENSHOT_IMAGE = '/assets/pyramid-arts-screenshot.png';
 
 const steps = [
     {
@@ -822,8 +824,8 @@ export default function Landing({
                                     }}
                                 >
                                     <img
-                                        src={CARD_IMAGE}
-                                        alt=""
+                                        src={PYRAMID_TIRANA_COLORS_IMAGE}
+                                        alt="Pyramid of Tirana building exterior"
                                         loading="lazy"
                                         decoding="async"
                                         style={{
@@ -965,8 +967,8 @@ export default function Landing({
                                     }}
                                 >
                                     <img
-                                        src={CARD_IMAGE}
-                                        alt=""
+                                        src={PYRAMID_ARTS_SCREENSHOT_IMAGE}
+                                        alt="Arts and culture at the Pyramid of Tirana"
                                         loading="lazy"
                                         decoding="async"
                                         style={{
