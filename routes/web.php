@@ -17,50 +17,61 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'landing')->name('home');
 
-Route::inertia('/planner', 'planner')->name('planner');
+Route::middleware(['auth', 'verified'])->group(function (): void {
+    Route::get('/ocr', [OcrController::class, 'index'])->name('ocr.index');
+    Route::post('/ocr', [OcrController::class, 'extract'])->name('ocr.extract');
+    Route::post('/ocr/document', [OcrController::class, 'extractDocument'])->name('ocr.document');
 
-Route::get('/facility', [FacilityController::class, 'index'])->name('facility');
+    Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
+    Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
 
-Route::post('/planner/agent', [PlannerAgentController::class, 'converse'])->name('planner.agent');
+    Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
+    Route::post('/chat', [ChatController::class, 'send'])->name('chat.send');
 
-Route::post('/event-requests', [EventRequestController::class, 'store'])->name('event-requests.store');
+    Route::get('pyramid/ingest', [PyramidKnowledgeController::class, 'index'])
+        ->name('pyramid.ingest.index');
 
-Route::post('/speech/transcribe', [SpeechController::class, 'transcribe'])->name('speech.transcribe');
-Route::post('/speech/speak', [SpeechController::class, 'speak'])->name('speech.speak');
+    Route::post('pyramid/ingest', [PyramidKnowledgeController::class, 'store'])
+        ->name('pyramid.ingest.store');
 
-Route::get('/ocr', [OcrController::class, 'index'])->name('ocr.index');
-Route::post('/ocr', [OcrController::class, 'extract'])->name('ocr.extract');
-Route::post('/ocr/document', [OcrController::class, 'extractDocument'])->name('ocr.document');
+    Route::get('pyramid/knowledge', [PyramidKnowledgeController::class, 'explore'])
+        ->name('pyramid.knowledge.index');
 
-Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
-Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
-Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
+    Route::get('/facility', [FacilityController::class, 'index'])->name('facility');
 
-Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
-Route::post('/chat', [ChatController::class, 'send'])->name('chat.send');
+    Route::middleware(['organization'])->group(function (): void {
+        Route::inertia('/planner', 'planner')->name('planner');
 
-Route::get('pyramid/ingest', [PyramidKnowledgeController::class, 'index'])
-    ->name('pyramid.ingest.index');
+        Route::post('/planner/agent', [PlannerAgentController::class, 'converse'])->name('planner.agent');
 
-Route::post('pyramid/ingest', [PyramidKnowledgeController::class, 'store'])
-    ->name('pyramid.ingest.store');
+        Route::post('/event-requests', [EventRequestController::class, 'store'])->name('event-requests.store');
 
-Route::get('pyramid/knowledge', [PyramidKnowledgeController::class, 'explore'])
-    ->name('pyramid.knowledge.index');
+        Route::post('/speech/transcribe', [SpeechController::class, 'transcribe'])->name('speech.transcribe');
+        Route::post('/speech/speak', [SpeechController::class, 'speak'])->name('speech.speak');
 
-// Email verification is intentionally NOT enforced — these routes use `auth`
-// only so signed-in users are never bounced to a "verify your email" screen.
-Route::middleware(['auth'])->group(function () {
-    Route::get('dashboard', function (Request $request) {
-        if ($request->user()?->isOperational()) {
-            return redirect()->route('operations.home');
-        }
+        // Organization event planner and portfolio (email must be verified).
+        Route::get('dashboard', function () {
+            return Inertia\Inertia::render('dashboard');
+        })->name('dashboard');
 
-        return Inertia\Inertia::render('dashboard');
-    })->name('dashboard');
+        // Organization event viewer: their booked events, analytics + live readiness.
+        Route::get('my-events', [MyEventController::class, 'index'])->name('my-events.index');
+        Route::get('my-events/{event}', [MyEventController::class, 'show'])->name('my-events.show');
+        Route::get('my-events/{event}/progress', [MyEventController::class, 'progress'])->name('my-events.progress');
+
+        // Profile completion (avatar + details).
+        Route::get('profile/complete', [UserProfileController::class, 'edit'])->name('profile.complete');
+        Route::post('profile/complete', [UserProfileController::class, 'update'])->name('profile.complete.update');
+        Route::get('users/{user}/profile', [UserProfileController::class, 'show'])->name('users.profile.show');
+
+        // In-app notifications (organizer is told when their event request is accepted).
+        Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+        Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    });
 
     // Operations dashboard shell (the React app reads the operations.* JSON API).
-    // `operational` blocks organization accounts (they're redirected to /dashboard).
     Route::get('operations', function (Request $request) {
         $user = $request->user();
 
@@ -74,21 +85,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('operational/changes/poll', OperationalChangePollController::class)
         ->middleware('operational')
         ->name('operational.changes.poll');
-
-    // Organization event viewer: their booked events, analytics + live readiness.
-    Route::get('my-events', [MyEventController::class, 'index'])->name('my-events.index');
-    Route::get('my-events/{event}', [MyEventController::class, 'show'])->name('my-events.show');
-    Route::get('my-events/{event}/progress', [MyEventController::class, 'progress'])->name('my-events.progress');
-
-    // Profile completion (avatar + details).
-    Route::get('profile/complete', [UserProfileController::class, 'edit'])->name('profile.complete');
-    Route::post('profile/complete', [UserProfileController::class, 'update'])->name('profile.complete.update');
-    Route::get('users/{user}/profile', [UserProfileController::class, 'show'])->name('users.profile.show');
-
-    // In-app notifications (organizer is told when their event request is accepted).
-    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
-    Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
-    Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
 require __DIR__.'/auth.php';

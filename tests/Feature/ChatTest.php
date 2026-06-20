@@ -1,6 +1,11 @@
 <?php
 
 use App\Agent\AgentService;
+use App\Models\User;
+
+beforeEach(function (): void {
+    $this->actingAs(User::factory()->create());
+});
 
 it('renders the chat page', function () {
     $this->get('/chat')->assertOk();

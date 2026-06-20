@@ -1,9 +1,14 @@
 <?php
 
 use App\Models\Document;
+use App\Models\User;
 use App\Services\DocumentOcrService;
 use App\Services\OcrService;
 use Illuminate\Http\UploadedFile;
+
+beforeEach(function (): void {
+    $this->actingAs(User::factory()->create());
+});
 
 it('lists uploaded documents', function () {
     Document::factory()->count(3)->create();

@@ -17,7 +17,7 @@ test('organization accounts are redirected away from the operations dashboard pa
 
     $this->actingAs($user)
         ->get(route('operations.home'))
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('planner'));
 });
 
 test('operational workers are redirected from the organization dashboard to operations', function (): void {

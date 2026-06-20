@@ -323,7 +323,7 @@ export default function Landing({
                             className="hero-cta-row"
                             style={{ animation: 'riseIn 0.85s ease 0.4s both' }}
                         >
-                            <a href="#how" className="cta-btn">
+                            <a href="/planner" className="cta-btn">
                                 Start planning
                                 <span className="arrow">→</span>
                             </a>
@@ -1024,7 +1024,7 @@ export default function Landing({
                                     Pyramid of Tirana.
                                 </p>
                                 <a
-                                    href="#how"
+                                    href="/planner"
                                     className="footer-cta"
                                     style={{
                                         display: 'inline-flex',
@@ -1101,7 +1101,7 @@ export default function Landing({
                                         Tenants
                                     </a>
                                     <a
-                                        href="#how"
+                                        href="/planner"
                                         className="footer-link"
                                         style={{
                                             fontSize: '15px',
