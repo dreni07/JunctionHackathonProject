@@ -2,9 +2,11 @@
 
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
+use App\Enums\RoleName;
 use App\Models\Asset;
 use App\Models\OperationalChange;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 
 test('creating an observed model records an operational change', function () {
     $asset = Asset::query()->create([
@@ -43,7 +45,10 @@ test('updating an observed model records changed attributes', function () {
 });
 
 test('authenticated users can poll operational changes since a cursor', function () {
-    $user = User::factory()->create();
+    $this->seed(RolePermissionSeeder::class);
+
+    $user = User::factory()->operational()->create();
+    $user->syncRoles(RoleName::Operations);
 
     $asset = Asset::query()->create([
         'name' => 'Poll chair',

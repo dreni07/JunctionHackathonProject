@@ -2,6 +2,7 @@
 
 use App\Enums\AccountType;
 use App\Enums\RoleName;
+use App\Enums\TenantWorkerRole;
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -35,6 +36,7 @@ test('workforce seeder creates fifty verified operational workers per tenant', f
             expect($worker->hasRole(RoleName::Operations))->toBeTrue();
             expect(Hash::check('password', $worker->password))->toBeTrue();
             expect($worker->worker_role)->toBeIn($tenant->roles);
+            expect($worker->worker_role)->not->toBe(TenantWorkerRole::Manager->value);
         }
     }
 });

@@ -4,17 +4,21 @@ namespace App\Models;
 
 use App\Enums\AccountType;
 use App\Enums\RoleName;
+use App\Enums\TenantWorkerRole;
 use App\Notifications\VerifyEmailWithCode;
 use App\Services\EmailVerificationCodeService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Attributes\Appends;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -42,6 +46,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  */
 #[Fillable(['name', 'email', 'phone', 'password', 'organization_id', 'account_type', 'tenant_id', 'worker_role'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Appends(['avatar'])]
 class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
@@ -109,6 +114,15 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
+     * Whether this operational worker manages their tenant's workforce.
+     */
+    public function isTenantManager(): bool
+    {
+        return $this->isOperational()
+            && $this->worker_role === TenantWorkerRole::Manager->value;
+    }
+
+    /**
      * Events this user has created.
      *
      * @return HasMany<Event, $this>
@@ -136,6 +150,35 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function alerts(): HasMany
     {
         return $this->hasMany(Alert::class);
+    }
+
+    /**
+     * The user's extended profile (avatar, job title, bio, …).
+     *
+     * @return HasOne<UserProfile, $this>
+     */
+    public function profile(): HasOne
+    {
+        return $this->hasOne(UserProfile::class);
+    }
+
+    /**
+     * How complete the user's extended profile is, as a percentage (0–100).
+     */
+    public function profileCompletionPercent(): int
+    {
+        return $this->profile?->completionPercent() ?? 0;
+    }
+
+    /**
+     * The public URL of the user's uploaded avatar, exposed to the frontend so
+     * the sidebar and notification UIs can show their picture.
+     *
+     * @return Attribute<string|null, never>
+     */
+    protected function avatar(): Attribute
+    {
+        return Attribute::get(fn (): ?string => $this->profile?->avatar_url);
     }
 
     /**

@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowUp,
@@ -8,6 +8,7 @@ import {
     Euro,
     FileText,
     Loader2,
+    LogIn,
     MapPin,
     MessageSquare,
     Mic,
@@ -23,6 +24,11 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { PyramidMap } from '@/components/pyramid-map';
+import type { Auth } from '@/types';
+
+/** The Pyramid floor plan used to show an organizer where their venue sits. */
+const PYRAMID_PLAN_SRC = '/assets/pyramid-plan.png';
 
 /* Landing-page palette — keep the studio consistent with the marketing site. */
 const C = {
@@ -38,16 +44,21 @@ const C = {
     muted: '#6E6E6E',
     faint: '#9A958B',
     danger: '#B4453A',
+    amber: '#8A6D1C',
 };
 
 const css = `
 .pl-root{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif}
 .pl-root *{box-sizing:border-box}
-.pl-card{transition:border-color .2s ease,box-shadow .25s ease,transform .25s ease}
-.pl-card:hover{border-color:${C.green};box-shadow:0 20px 40px -24px rgba(16,130,91,0.45);transform:translateY(-3px)}
-.pl-card:hover .pl-card-arrow{transform:translateX(3px);color:${C.green}}
+.pl-card{position:relative;overflow:hidden;transition:border-color .25s ease,box-shadow .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
+.pl-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--pl-accent,#10825B),color-mix(in srgb,var(--pl-accent,#10825B) 35%,transparent));opacity:.85}
+.pl-card:hover{border-color:color-mix(in srgb,var(--pl-accent,#10825B) 45%,#E0DCD3)!important;box-shadow:0 28px 56px -28px color-mix(in srgb,var(--pl-accent,#10825B) 38%,transparent);transform:translateY(-4px)}
+.pl-card:hover .pl-card-arrow{transform:translate(4px,-4px);opacity:1;color:var(--pl-accent,#10825B)}
+.pl-card-featured{background:linear-gradient(165deg,#fff 0%,#F7FAF8 52%,#EEF5F1 100%)!important}
 .pl-icon-btn{transition:background .18s ease,border-color .18s ease,color .18s ease}
 .pl-icon-btn:hover{background:${C.cream}}
+.pl-nav-link{transition:color .18s ease,background .18s ease}
+.pl-nav-link:hover{background:${C.cream};color:${C.ink}}
 .pl-send{transition:background .2s ease,transform .2s ease}
 .pl-send:not(:disabled):hover{background:${C.greenDeep};transform:translateY(-1px)}
 .pl-send:disabled{opacity:.4;cursor:not-allowed}
@@ -59,6 +70,22 @@ const css = `
 .pl-composer:focus-within{border-color:${C.green};box-shadow:0 0 0 4px rgba(16,130,91,0.1)}
 .pl-drop{transition:border-color .2s ease,background .2s ease}
 .pl-drop.is-over,.pl-drop:hover{border-color:${C.green};background:rgba(16,130,91,0.04)}
+.pl-hero-glow{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none}
+.pl-hero-glow-a{top:-80px;left:-40px;width:320px;height:320px;background:rgba(16,130,91,0.16);animation:pl-float 9s ease-in-out infinite}
+.pl-hero-glow-b{bottom:-120px;right:-60px;width:380px;height:380px;background:rgba(42,111,68,0.12);animation:pl-float 9s ease-in-out infinite;animation-delay:-3s}
+@keyframes pl-float{0%,100%{transform:translateY(0)}50%{transform:translateY(18px)}}
+.pl-hero-glow-a{top:-80px;left:-40px;width:320px;height:320px;background:rgba(16,130,91,0.16);animation:pl-float 9s ease-in-out infinite}
+.pl-hero-glow-b{bottom:-120px;right:-60px;width:380px;height:380px;background:rgba(42,111,68,0.12);animation:pl-float 9s ease-in-out infinite;animation-delay:-3s}
+@keyframes pl-float{0%,100%{transform:translateY(0)}50%{transform:translateY(18px)}}
+.pl-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:1px solid color-mix(in srgb,var(--pl-accent,#10825B) 20%,transparent);background:color-mix(in srgb,var(--pl-accent,#10825B) 8%,#fff);color:var(--pl-accent,#10825B)}
+.pl-bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:clamp(14px,2vw,20px);width:100%;max-width:920px}
+.pl-bento-card{grid-column:span 4}
+.pl-bento-featured{grid-column:span 12}
+@media(max-width:860px){.pl-bento-card{grid-column:span 12}}
+@media(max-width:640px){.pl-header-sub,.pl-header-divider{display:none!important}}
+@media(min-width:641px){.pl-user-name{display:inline!important}}
+@keyframes pl-rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.pl-rise{animation:pl-rise .55s cubic-bezier(.2,.8,.2,1) both}
 @keyframes pl-pulse{0%{transform:scale(1);opacity:.55}70%{transform:scale(2.1);opacity:0}100%{opacity:0}}
 @keyframes pl-spin{to{transform:rotate(360deg)}}
 @keyframes pl-blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
@@ -108,6 +135,16 @@ async function postJson(url: string, payload: unknown): Promise<Response> {
 
 export default function Planner() {
     const [mode, setMode] = useState<Mode>('home');
+    const { auth } = usePage<{ auth: Auth }>().props;
+    const user = auth.user;
+    const initials = user?.name
+        ? user.name
+              .split(' ')
+              .map((part) => part[0])
+              .slice(0, 2)
+              .join('')
+              .toUpperCase()
+        : null;
 
     return (
         <div
@@ -142,50 +179,124 @@ export default function Planner() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '16px 26px',
+                    padding: '14px clamp(18px,3vw,28px)',
                     borderBottom: `1px solid ${C.borderSoft}`,
-                    background: C.card,
+                    background: 'rgba(255,255,255,0.88)',
+                    backdropFilter: 'blur(12px)',
                 }}
             >
                 <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 11 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14 }}
                 >
-                    <span
+                    <Link
+                        href="/"
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 32,
-                            height: 32,
-                            borderRadius: 9,
-                            background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
+                            gap: 11,
+                            textDecoration: 'none',
+                            color: C.ink,
                         }}
                     >
-                        <Triangle size={15} fill="#fff" color="#fff" />
-                    </span>
-                    <span style={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-                        PIRAMIDA
-                    </span>
-                    <span style={{ color: C.faint, fontSize: 14 }}>
-                        · AI Planner
+                        <span
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 34,
+                                height: 34,
+                                borderRadius: 10,
+                                background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
+                            }}
+                        >
+                            <Triangle size={15} fill="#fff" color="#fff" />
+                        </span>
+                        <span
+                            style={{
+                                fontWeight: 800,
+                                letterSpacing: '0.05em',
+                                fontSize: 14,
+                            }}
+                        >
+                            PIRAMIDA
+                        </span>
+                    </Link>
+                    <span
+                        className="pl-header-divider"
+                        style={{
+                            width: 1,
+                            height: 22,
+                            background: C.border,
+                        }}
+                    />
+                    <span
+                        className="pl-header-sub"
+                        style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: C.muted,
+                        }}
+                    >
+                        AI Event Planner
                     </span>
                 </div>
-                <span
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-                        color: '#fff',
-                        fontSize: 13,
-                        fontWeight: 700,
-                    }}
+
+                <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}
                 >
-                    PO
-                </span>
+                    {user ? (
+                        <>
+                            <span
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: C.muted,
+                                }}
+                                className="pl-user-name"
+                            >
+                                {user.name}
+                            </span>
+                            <span
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: '50%',
+                                    background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
+                                    color: '#fff',
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                }}
+                                title={user.name}
+                            >
+                                {initials}
+                            </span>
+                        </>
+                    ) : (
+                        <Link
+                            href="/login"
+                            className="pl-nav-link"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 7,
+                                padding: '8px 14px',
+                                borderRadius: 999,
+                                border: `1px solid ${C.border}`,
+                                background: C.card,
+                                color: C.ink,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                textDecoration: 'none',
+                            }}
+                        >
+                            <LogIn size={15} />
+                            Sign in
+                        </Link>
+                    )}
+                </div>
             </header>
 
             {/* ===== BODY ===== */}
@@ -239,26 +350,43 @@ export default function Planner() {
 const actions: {
     mode: Mode;
     icon: LucideIcon;
+    num: string;
+    tag: string;
     title: string;
     subtitle: string;
+    accent: string;
+    featured?: boolean;
 }[] = [
     {
         mode: 'voice',
         icon: Mic,
-        title: 'Talk to Planner',
-        subtitle: 'Describe your event out loud',
+        num: '01',
+        tag: 'Recommended',
+        title: 'Talk to Kleopatra',
+        subtitle:
+            'Describe your event out loud — venue, timing, and budget in one natural conversation.',
+        accent: C.green,
+        featured: true,
     },
     {
         mode: 'chat',
         icon: MessageSquare,
-        title: 'Chat with Planner',
-        subtitle: 'Type and refine in a chat',
+        num: '02',
+        tag: 'Chat',
+        title: 'Plan in writing',
+        subtitle:
+            'Type details at your pace, refine answers, and iterate before you submit.',
+        accent: C.greenDark,
     },
     {
         mode: 'upload',
         icon: Upload,
+        num: '03',
+        tag: 'Brief',
         title: 'Upload a brief',
-        subtitle: 'Add a PDF or image',
+        subtitle:
+            'Drop a PDF or image and let the agent extract the event requirements for you.',
+        accent: '#8A6D1C',
     },
 ];
 
@@ -267,116 +395,211 @@ function Home({ onSelect }: { onSelect: (mode: Mode) => void }) {
         <div
             style={{
                 flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px',
+                position: 'relative',
+                overflowY: 'auto',
+                padding: 'clamp(24px,4vw,48px)',
             }}
         >
-            <Orb />
-            <h1
-                style={{
-                    fontSize: 32,
-                    fontWeight: 700,
-                    letterSpacing: '-0.02em',
-                    textAlign: 'center',
-                    margin: '26px 0 10px',
-                }}
-            >
-                What event do you want to organize?
-            </h1>
-            <p
-                style={{
-                    fontSize: 15.5,
-                    color: C.muted,
-                    textAlign: 'center',
-                    maxWidth: 480,
-                    marginBottom: 34,
-                }}
-            >
-                Pick how you'd like to start — talk it through, chat it out, or
-                upload an existing brief.
-            </p>
+            <div className="pl-hero-glow pl-hero-glow-a" />
+            <div className="pl-hero-glow pl-hero-glow-b" />
 
             <div
                 style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                        'repeat(auto-fit, minmax(210px, 1fr))',
-                    gap: 16,
-                    width: '100%',
-                    maxWidth: 720,
+                    position: 'relative',
+                    zIndex: 1,
+                    maxWidth: 980,
+                    margin: '0 auto',
                 }}
             >
-                {actions.map((action) => (
-                    <button
-                        key={action.mode}
-                        type="button"
-                        className="pl-card"
-                        onClick={() => onSelect(action.mode)}
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-start',
-                            gap: 14,
-                            padding: '22px 20px',
-                            borderRadius: 16,
-                            border: `1px solid ${C.border}`,
-                            background: C.card,
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            boxShadow: '0 14px 34px -26px rgba(26,26,26,0.3)',
-                        }}
-                    >
-                        <span
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(0,1fr) auto',
+                        gap: 28,
+                        alignItems: 'center',
+                        marginBottom: 36,
+                    }}
+                >
+                    <div>
+                        <span className="pl-chip" style={{ ['--pl-accent' as string]: C.green, marginBottom: 16 }}>
+                            <Sparkles size={12} />
+                            AI Event Studio
+                        </span>
+                        <h1
                             style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 44,
-                                height: 44,
-                                borderRadius: 12,
-                                background: C.greenTint,
-                                color: C.green,
+                                fontSize: 'clamp(32px,5vw,46px)',
+                                fontWeight: 800,
+                                letterSpacing: '-0.03em',
+                                lineHeight: 1.08,
+                                marginBottom: 12,
                             }}
                         >
-                            <action.icon size={21} />
-                        </span>
-                        <span>
-                            <span
+                            Plan your next event at the Pyramid
+                        </h1>
+                        <p
+                            style={{
+                                fontSize: 'clamp(15px,2vw,17px)',
+                                color: C.muted,
+                                lineHeight: 1.65,
+                                maxWidth: 560,
+                            }}
+                        >
+                            Choose how you want to start. Kleopatra listens,
+                            chats, or reads your brief — then recommends venues,
+                            pricing, and a path to submit.
+                        </p>
+                    </div>
+                    <div style={{ justifySelf: 'center' }}>
+                        <Orb size={108} phase="idle" />
+                    </div>
+                </div>
+
+                <div
+                    className="pl-bento"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 18,
+                    }}
+                >
+                    {actions.map((action, index) => (
+                        <button
+                            key={action.mode}
+                            type="button"
+                            className={`pl-card pl-rise${action.featured ? ' pl-card-featured' : ''}`}
+                            onClick={() => onSelect(action.mode)}
+                            style={{
+                                ['--pl-accent' as string]: action.accent,
+                                animationDelay: `${index * 0.08}s`,
+                                gridColumn: action.featured
+                                    ? 'span 2'
+                                    : 'auto',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-start',
+                                gap: 18,
+                                padding: '26px 24px 22px',
+                                borderRadius: 22,
+                                border: `1px solid ${C.border}`,
+                                background: C.card,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                boxShadow:
+                                    '0 12px 36px -28px rgba(26,26,26,0.28)',
+                            }}
+                        >
+                            <div
                                 style={{
                                     display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    fontSize: 16.5,
-                                    fontWeight: 600,
+                                    width: '100%',
+                                    alignItems: 'flex-start',
+                                    justifyContent: 'space-between',
+                                    gap: 12,
                                 }}
                             >
-                                {action.title}
-                                <ArrowUp
-                                    className="pl-card-arrow"
-                                    size={15}
-                                    color={C.faint}
+                                <div
                                     style={{
-                                        transform: 'rotate(45deg)',
-                                        transition: 'transform .2s ease',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 10,
                                     }}
-                                />
-                            </span>
-                            <span
-                                style={{
-                                    display: 'block',
-                                    marginTop: 3,
-                                    fontSize: 13.5,
-                                    color: C.muted,
-                                }}
-                            >
-                                {action.subtitle}
-                            </span>
-                        </span>
-                    </button>
-                ))}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            letterSpacing: '0.12em',
+                                            textTransform: 'uppercase',
+                                            color: C.faint,
+                                        }}
+                                    >
+                                        {action.num}
+                                    </span>
+                                    <span
+                                        className="pl-chip"
+                                        style={{
+                                            ['--pl-accent' as string]:
+                                                action.accent,
+                                        }}
+                                    >
+                                        {action.tag}
+                                    </span>
+                                </div>
+                                <span
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 14,
+                                        background: `color-mix(in srgb, ${action.accent} 12%, #fff)`,
+                                        color: action.accent,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <action.icon size={22} />
+                                </span>
+                            </div>
+
+                            <div style={{ width: '100%' }}>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 10,
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: 'clamp(18px,2.2vw,22px)',
+                                            fontWeight: 800,
+                                            letterSpacing: '-0.02em',
+                                        }}
+                                    >
+                                        {action.title}
+                                    </span>
+                                    <ArrowUp
+                                        className="pl-card-arrow"
+                                        size={18}
+                                        color={action.accent}
+                                        style={{
+                                            transform: 'rotate(45deg)',
+                                            opacity: 0.55,
+                                            transition:
+                                                'transform .25s ease, opacity .25s ease',
+                                            flexShrink: 0,
+                                        }}
+                                    />
+                                </div>
+                                <p
+                                    style={{
+                                        marginTop: 8,
+                                        fontSize: 14.5,
+                                        lineHeight: 1.6,
+                                        color: C.muted,
+                                        maxWidth: action.featured ? 640 : 320,
+                                    }}
+                                >
+                                    {action.subtitle}
+                                </p>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+
+                <p
+                    style={{
+                        marginTop: 28,
+                        textAlign: 'center',
+                        fontSize: 13,
+                        color: C.faint,
+                    }}
+                >
+                    Powered by Kleopatra · Pyramid venue intelligence · Real
+                    availability data
+                </p>
             </div>
         </div>
     );
@@ -384,9 +607,9 @@ function Home({ onSelect }: { onSelect: (mode: Mode) => void }) {
 
 /* Kleopatra — the agent's avatar, one image per conversation state. */
 const KLEOPATRA = {
-    hello: '/assets/kleopatra-hello.png', // greeting / speaking
-    thinking: '/assets/kleopatra-thinking.png', // deciding what to say
-    listening: '/assets/kleopatra-listening.png', // waiting for you to finish
+    hello: '/assets/kleopatra-hello.png?v=2', // greeting / speaking
+    thinking: '/assets/kleopatra-thinking.png?v=2', // deciding what to say
+    listening: '/assets/kleopatra-listening.png?v=2', // waiting for you to finish
 };
 
 function kleopatraSrc(phase: ConvoPhase): string {
@@ -443,16 +666,20 @@ type EventDetails = {
     venue?: {
         name?: string;
         room_code?: string;
+        box_ref?: string | null;
         floor?: number;
         capacity?: number;
         functional_type?: string;
         confidence?: number;
+        location_geometry?: { x: number; y: number } | null;
     } | null;
     pricing?: {
         price_per_sqm?: number;
         total?: number;
         sample_size?: number;
         basis?: string;
+        agreed?: boolean;
+        suggested_total?: number;
     } | null;
     reason?: 'ok' | 'over_capacity' | 'all_booked';
     max_capacity?: number | null;
@@ -473,6 +700,9 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
 
     const activeRef = useRef(false);
     const pendingEndRef = useRef(false);
+    // Which agent owns the conversation: starts with the advisor, flips to the
+    // booking (intake) agent once the visitor wants to organize for real.
+    const agentModeRef = useRef<'advisor' | 'intake'>('advisor');
     const streamRef = useRef<MediaStream | null>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
@@ -623,10 +853,15 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                 role: turn.role,
                 content: turn.content,
             })),
+            mode: agentModeRef.current,
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
             throw new Error(data.message || 'Agent error.');
+        }
+        // Persist which agent is now in charge (advisor → intake handoff).
+        if (data.mode === 'advisor' || data.mode === 'intake') {
+            agentModeRef.current = data.mode;
         }
         return {
             reply: String(data.reply || ''),
@@ -1884,14 +2119,19 @@ function ReviewModal({
         });
     }
     if (review.pricing) {
+        const agreed = review.pricing.agreed === true;
+        const wasPrice =
+            agreed && review.pricing.suggested_total != null
+                ? ` · was €${Math.round(review.pricing.suggested_total).toLocaleString()}`
+                : '';
         items.push({
             icon: Euro,
-            label: 'Suggested price',
+            label: agreed ? 'Agreed price' : 'Suggested price',
             value: `€${Math.round(review.pricing.total ?? 0).toLocaleString()}${
                 review.pricing.price_per_sqm != null
                     ? ` · €${review.pricing.price_per_sqm}/m²`
                     : ''
-            }`,
+            }${wasPrice}`,
         });
     }
     if (review.description) {
@@ -2067,6 +2307,44 @@ function ReviewModal({
                         );
                     })}
                 </div>
+
+                {/* Where the venue sits in the Pyramid */}
+                {review.venue?.location_geometry && (
+                    <div style={{ marginTop: 18 }}>
+                        <div
+                            style={{
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                color: C.faint,
+                                marginBottom: 8,
+                            }}
+                        >
+                            Where it is in the Pyramid
+                        </div>
+                        <PyramidMap
+                            src={PYRAMID_PLAN_SRC}
+                            pins={[
+                                {
+                                    id: 'venue',
+                                    x: review.venue.location_geometry.x,
+                                    y: review.venue.location_geometry.y,
+                                    label:
+                                        review.venue.box_ref ??
+                                        review.venue.name,
+                                    tone: 'highlight',
+                                },
+                            ]}
+                            style={{
+                                border: `1px solid ${C.border}`,
+                                borderRadius: 14,
+                                padding: 6,
+                                background: C.card,
+                            }}
+                        />
+                    </div>
+                )}
 
                 {/* Footer */}
                 {hasVenue ? (

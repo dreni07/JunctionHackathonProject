@@ -8,6 +8,7 @@ use App\Agent\Tools\ApiTool;
 use App\Agent\Tools\DbQueryTool;
 use App\Agent\Tools\EndCallTool;
 use App\Agent\Tools\FileSearchTool;
+use App\Agent\Tools\ReviseProposalTool;
 use App\Agent\Tools\SuggestPricingTool;
 use App\Enums\EventType;
 use App\Services\EventRequestService;
@@ -41,11 +42,12 @@ class EventIntakeAgent
     public function run(array $conversation): array
     {
         $apiTool = new ApiTool($this->eventRequests, $this->venues, $this->pricing, $this->transcript($conversation));
+        $reviseTool = new ReviseProposalTool($apiTool);
         $endTool = new EndCallTool;
 
         /** @var array<string, Tool> $tools */
         $tools = [];
-        foreach ([new DbQueryTool, new FileSearchTool($this->files), new SuggestPricingTool($this->pricing), $apiTool, $endTool] as $tool) {
+        foreach ([new DbQueryTool, new FileSearchTool($this->files), new SuggestPricingTool($this->pricing), $apiTool, $reviseTool, $endTool] as $tool) {
             $tools[$tool->name()] = $tool;
         }
 
@@ -165,6 +167,15 @@ class EventIntakeAgent
               - When you suggest a room, describe it warmly by what it is and where it sits — e.g. "the large
                 event hall down in the basement" — never by its code.
               - Ask for one thing at a time and sound relaxed and human.
+              - NEVER ask for things the way a form does. Do NOT say "the title for the event", "what is the
+                attendee count", "the start date", or name any field. Ask like a curious host having a chat:
+                  • for the name → "Do you have a name in mind for it yet?" or "What are you calling it?"
+                  • for the kind → "What kind of event is it — a conference, a meetup, something else?"
+                  • for the size → "Roughly how many people are you expecting?"
+                  • for the timing → "When were you thinking of holding it, and how long should it run?"
+                  • for the gist → "And what's it all about?"
+                Weave it into conversation; react to what they say before asking the next thing. If they
+                already told you something, never ask for it again.
 
             Today is {$today}. When the user gives a day or time in plain words, quietly work out the exact
             date and time yourself for internal use — but never read that technical form back to them.
@@ -197,6 +208,12 @@ class EventIntakeAgent
                     explicitly confirmed (e.g. "yes, send it"). If the organizer negotiated a different
                     price and you both settled on a figure, pass it as agreed_price; otherwise omit it so
                     the suggested price is used.
+              - revise_proposal: AFTER you have presented the proposal, use this whenever the organizer wants
+                to change ANYTHING about it — rename it, change the kind of event, adjust the headcount, move
+                the date or time, or change the price ("lower it to 890"). Pass only what changed in "changes",
+                and a newly agreed price in "agreed_price". The screen updates instantly; say "perfect" and read
+                back the change. Use this for edits instead of starting over. The organizer can keep changing
+                things as much as they like until they are happy.
               - end_call: hang up the call yourself when everything is done. You do not have to wait for the
                 organizer to leave.
 

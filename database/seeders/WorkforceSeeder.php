@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\AccountType;
 use App\Enums\RoleName;
+use App\Enums\TenantWorkerRole;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -48,7 +49,10 @@ class WorkforceSeeder extends Seeder
 
         foreach ($tenants as $tenant) {
             /** @var list<string> $roles */
-            $roles = array_values($tenant->roles ?? []);
+            $roles = array_values(array_filter(
+                $tenant->roles ?? [],
+                fn (string $role): bool => $role !== TenantWorkerRole::Manager->value,
+            ));
 
             if ($roles === []) {
                 continue;

@@ -10,6 +10,7 @@ use App\Enums\EventStatus;
 use App\Models\Event;
 use App\Models\EventRequest;
 use App\Models\User;
+use App\Notifications\EventRequestAccepted;
 use App\Services\ActivityLogService;
 use App\Support\OperationalAccess;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -28,7 +29,7 @@ class EventRequestManagementService
     public function paginate(User $user, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = OperationalAccess::scopeEventRequests(
-            EventRequest::query()->with(['submitter:id,name,email', 'matchedSpace:id,name,zone_class']),
+            EventRequest::query()->with(['submitter:id,name,email', 'matchedSpace:id,name,zone_class,capacity,box_ref,location_geometry']),
             $user,
         )->latest();
 
@@ -52,7 +53,7 @@ class EventRequestManagementService
 
         return $eventRequest->load([
             'submitter:id,name,email',
-            'matchedSpace:id,name,zone_class,capacity',
+            'matchedSpace:id,name,zone_class,capacity,box_ref,location_geometry',
             'venueMatches.space:id,name,zone_class',
             'event:id,title,status',
             'finalProposal:id,title,status',
@@ -132,6 +133,9 @@ class EventRequestManagementService
                 $event,
             );
 
+            // Let the organizer who submitted the request know it was accepted.
+            $eventRequest->submitter?->notify(new EventRequestAccepted($eventRequest, $event));
+
             return $event->load(['creator:id,name', 'eventRequest:id,title,status']);
         });
     }
@@ -159,7 +163,7 @@ class EventRequestManagementService
             'submitted_by' => $eventRequest->submitted_by,
             'submitter' => $eventRequest->relationLoaded('submitter') ? $eventRequest->submitter?->only(['id', 'name', 'email']) : null,
             'matched_space_id' => $eventRequest->matched_space_id,
-            'matched_space' => $eventRequest->relationLoaded('matchedSpace') ? $eventRequest->matchedSpace?->only(['id', 'name', 'zone_class', 'capacity']) : null,
+            'matched_space' => $eventRequest->relationLoaded('matchedSpace') ? $eventRequest->matchedSpace?->only(['id', 'name', 'zone_class', 'capacity', 'box_ref', 'location_geometry']) : null,
             'event_id' => $eventRequest->event_id,
             'final_proposal_id' => $eventRequest->final_proposal_id,
             'created_at' => $eventRequest->created_at?->toIso8601String(),

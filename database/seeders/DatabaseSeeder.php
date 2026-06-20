@@ -44,6 +44,12 @@ class DatabaseSeeder extends Seeder
         // Tenants (Pyramid branches) and their operational demo workers.
         $this->call(TenantSeeder::class);
 
+        // One tenant manager per branch (creates operational managers).
+        $this->call(TenantManagerSeeder::class);
+
+        // Branch finance: budgets, invoices, payments, and expenses.
+        $this->call(TenantFinanceSeeder::class);
+
         // 50 operational workers per tenant (150 total across three branches).
         $this->call(WorkforceSeeder::class);
 

@@ -592,7 +592,7 @@ export default function Landing({
                                                 color: '#6E6E6E',
                                             }}
                                         >
-                                            Arsim · Edukim
+                                            Education · Learning
                                         </span>
                                     </div>
                                     <h3
@@ -616,14 +616,14 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Në Shqipëri, kjo qendër inovatore
-                                        vjen si një nismë e Fondacionit
-                                        Shqiptaro-Amerikan për Zhvillim (AADF)
-                                        në bashkëpunim me Bashkinë Tiranë.
-                                        Nxënësit kanë në dispozicion një
-                                        hapësirë moderne me laboratorë
-                                        mësimorë, auditore, studio muzikore
-                                        dhe shumë ambiente të hapura studimi.
+                                        In Albania, this innovative center is
+                                        an initiative of the Albanian-American
+                                        Development Foundation (AADF) in
+                                        partnership with the Municipality of
+                                        Tirana. Students have access to a modern
+                                        space with learning labs, auditoriums,
+                                        music studios, and many open study
+                                        environments.
                                     </p>
                                     <p
                                         style={{
@@ -635,13 +635,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        TUMO është një organizatë
-                                        jofitimprurëse e themeluar nga
-                                        Fondacioni Simonian për Arsimin, e
-                                        hapur për herë të parë në Jerevan
-                                        më 2011. Filozofia e saj unike e ka
-                                        sjellë në Paris, Bejrut, Berlin,
-                                        Moskë e tani në Tiranë.
+                                        TUMO is a non-profit organization
+                                        founded by the Simonian Foundation for
+                                        Education, first opened in Yerevan in
+                                        2011. Its unique philosophy has brought
+                                        it to Paris, Beirut, Berlin, Moscow,
+                                        and now Tirana.
                                     </p>
                                     <p
                                         style={{
@@ -652,12 +651,11 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Studentët mësojnë në mënyrë të
-                                        pavarur përmes platformës TUMO Path,
-                                        duke ndërtuar një portofol personal
-                                        në programim, animacion, zhvillim
-                                        lojrash, dizajn grafik, filmografi,
-                                        robotikë, muzikë dhe modelim 3D.
+                                        Students learn independently through the
+                                        TUMO Path platform, building a personal
+                                        portfolio in programming, animation, game
+                                        development, graphic design, filmmaking,
+                                        robotics, music, and 3D modeling.
                                     </p>
                                 </div>
                                 <div
@@ -741,7 +739,7 @@ export default function Landing({
                                                 color: '#6E6E6E',
                                             }}
                                         >
-                                            Teknologji · Inovacion
+                                            Technology · Innovation
                                         </span>
                                     </div>
                                     <h3
@@ -753,7 +751,7 @@ export default function Landing({
                                             marginBottom: '18px',
                                         }}
                                     >
-                                        Hapësira TIK
+                                        ICT Ecosystem
                                     </h3>
                                     <p
                                         style={{
@@ -765,13 +763,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Hapësira TIK në Shqipëri ka parë
-                                        rritje të konsiderueshme vitet e
-                                        fundit, me programe arsimore, komunitete
-                                        dhe rrjete mbështetëse.
-                                        Sipërmarrësit dhe startup-et po nxisin
-                                        inovacionin për të përmbushur nevojat
-                                        globale dhe lokale.
+                                        Albania's ICT space has seen significant
+                                        growth in recent years, with educational
+                                        programs, communities, and support
+                                        networks. Entrepreneurs and startups are
+                                        driving innovation to meet global and
+                                        local needs.
                                     </p>
                                     <p
                                         style={{
@@ -783,12 +780,11 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Piramida e Tiranës do të luajë një
-                                        rol qendror në nxitjen e këtij
-                                        ekosistemi — një qendër për
-                                        shkëmbimin e ideve, një forum publik
-                                        gjithëpërfshirës, i hapur 24/7 me
-                                        një larmi funksionesh dhe eventesh.
+                                        The Pyramid of Tirana will play a central
+                                        role in fostering this ecosystem — a hub
+                                        for exchanging ideas, an inclusive public
+                                        forum open 24/7 with a wide range of
+                                        functions and events.
                                     </p>
                                     <p
                                         style={{
@@ -799,11 +795,10 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Transformimi i saj në një ekosistem
-                                        të hapur TIK tregon se si një
-                                        ndërtesë mund të përshtatet për
-                                        nevojat e një epoke të re, duke
-                                        ruajtur historinë e saj.
+                                        Its transformation into an open ICT
+                                        ecosystem shows how a building can adapt
+                                        to the needs of a new era while
+                                        preserving its history.
                                     </p>
                                 </div>
                                 <div
@@ -886,7 +881,7 @@ export default function Landing({
                                                 color: '#6E6E6E',
                                             }}
                                         >
-                                            Kulturë · Art
+                                            Culture · Art
                                         </span>
                                     </div>
                                     <h3
@@ -898,7 +893,7 @@ export default function Landing({
                                             marginBottom: '18px',
                                         }}
                                     >
-                                        Artet
+                                        Arts
                                     </h3>
                                     <p
                                         style={{
@@ -910,13 +905,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Arti luan një rol kyç në nxitjen e
-                                        krijimtarisë dhe frymëzimin e
-                                        perspektivave të reja. Mundësia për
-                                        të ndarë dhe ekspozuar punën me
-                                        publikun është thelbësore që
-                                        artistët të realizojnë vizionin e
-                                        tyre.
+                                        Art plays a key role in fostering
+                                        creativity and inspiring new
+                                        perspectives. The opportunity to share
+                                        and exhibit work with the public is
+                                        essential for artists to realize their
+                                        vision.
                                     </p>
                                     <p
                                         style={{
@@ -928,12 +922,12 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Në Piramidën e Tiranës, ne jemi të
-                                        përkushtuar për të kultivuar artet
-                                        në Shqipëri. Me një gamë të
-                                        larmishme ekspozitash, eventesh dhe
-                                        programesh, ajo do të shërbejë si
-                                        vend takimi për artistët me publikun.
+                                        At the Pyramid of Tirana, we are
+                                        dedicated to cultivating the arts in
+                                        Albania. With a wide range of
+                                        exhibitions, events, and programs, it
+                                        will serve as a meeting place for
+                                        artists and the public.
                                     </p>
                                     <p
                                         style={{
@@ -944,11 +938,10 @@ export default function Landing({
                                             maxWidth: '58ch',
                                         }}
                                     >
-                                        Nëse jeni artist apo thjesht i
-                                        dashuruar pas artit, Piramida e Tiranës
-                                        është vendi i përsosur për t'u
-                                        frymëzuar, biseduar dhe për të
-                                        krijuar.
+                                        Whether you are an artist or simply a
+                                        lover of art, the Pyramid of Tirana is
+                                        the perfect place to be inspired, talk,
+                                        and create.
                                     </p>
                                 </div>
                                 <div
