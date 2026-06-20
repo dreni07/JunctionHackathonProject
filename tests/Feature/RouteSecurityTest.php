@@ -37,24 +37,24 @@ test('operational workers are redirected away from organization event routes', f
     'notifications.index',
 ]);
 
-test('unverified organization accounts are redirected to email verification', function (string $routeName): void {
+test('unverified organization accounts can access protected organization routes', function (string $routeName): void {
     $user = User::factory()->organization()->unverified()->create();
 
     $this->actingAs($user)
         ->get(route($routeName))
-        ->assertRedirect(route('verification.notice'));
+        ->assertOk();
 })->with([
     'planner',
     'my-events.index',
     'dashboard',
 ]);
 
-test('unverified operational workers are redirected to email verification', function (): void {
+test('unverified operational workers can open the operations dashboard', function (): void {
     $worker = User::factory()->operational()->unverified()->create();
 
     $this->actingAs($worker)
         ->get(route('operations.home'))
-        ->assertRedirect(route('verification.notice'));
+        ->assertOk();
 });
 
 test('guests cannot access protected application routes', function (string $routeName): void {

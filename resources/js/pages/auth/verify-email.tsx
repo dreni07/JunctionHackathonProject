@@ -125,6 +125,13 @@ export default function VerifyEmail({ status, resendCooldown = 0 }: Props) {
                 </div>
             )}
 
+            {status === 'verification-mail-failed' && (
+                <div className="mb-5 rounded-lg bg-red-50 px-4 py-2.5 text-center text-sm font-medium text-red-900">
+                    We could not send the verification email right now. Use
+                    resend below or check your mail settings, then try again.
+                </div>
+            )}
+
             <Form
                 {...verifyCode.form()}
                 resetOnError={['code']}

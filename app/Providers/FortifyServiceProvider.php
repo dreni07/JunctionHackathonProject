@@ -74,17 +74,29 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::verifyEmailView(function (Request $request) {
             $user = $request->user();
+            $mailFailed = false;
 
             if ($user !== null && ! $user->hasVerifiedEmail()) {
                 $codes = app(EmailVerificationCodeService::class);
 
                 if (! $codes->hasActiveCode($user)) {
-                    $user->sendEmailVerificationNotification();
+                    try {
+                        $user->sendEmailVerificationNotification();
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                        $mailFailed = true;
+                    }
                 }
             }
 
+            $status = $request->session()->get('status');
+
+            if ($mailFailed && $status === null) {
+                $status = 'verification-mail-failed';
+            }
+
             return Inertia::render('auth/verify-email', [
-                'status' => $request->session()->get('status'),
+                'status' => $status,
                 // Seconds the user must wait before another email can be sent
                 // (60 right after a send, 0 once the window has elapsed). The key
                 // mirrors how the throttle middleware stores a named limiter.

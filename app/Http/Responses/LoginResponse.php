@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Responses;
 
+use App\Support\AuthRedirect;
 use Illuminate\Http\RedirectResponse;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
@@ -13,8 +14,8 @@ class LoginResponse implements LoginResponseContract
     {
         $user = $request->user();
 
-        if ($user !== null && $user->isOperational()) {
-            return redirect()->intended(route('operations.home', absolute: false));
+        if ($user !== null) {
+            return redirect()->intended(AuthRedirect::homeFor($user));
         }
 
         return redirect()->intended(route('planner', absolute: false));

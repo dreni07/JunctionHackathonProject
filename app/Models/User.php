@@ -5,10 +5,7 @@ namespace App\Models;
 use App\Enums\AccountType;
 use App\Enums\RoleName;
 use App\Enums\TenantWorkerRole;
-use App\Notifications\VerifyEmailWithCode;
-use App\Services\EmailVerificationCodeService;
 use Database\Factories\UserFactory;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Appends;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -47,7 +44,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 #[Fillable(['name', 'email', 'phone', 'password', 'organization_id', 'account_type', 'tenant_id', 'worker_role'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 #[Appends(['avatar'])]
-class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
+class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
@@ -267,15 +264,5 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             ->flatMap(fn (Role $role): iterable => $role->permissions->pluck('name'))
             ->unique()
             ->values();
-    }
-
-    /**
-     * Send a one-time verification code instead of a signed email link.
-     */
-    public function sendEmailVerificationNotification(): void
-    {
-        $code = app(EmailVerificationCodeService::class)->issue($this);
-
-        $this->notify(new VerifyEmailWithCode($code));
     }
 }

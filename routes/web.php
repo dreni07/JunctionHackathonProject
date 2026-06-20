@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'landing')->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function (): void {
+Route::middleware(['auth'])->group(function (): void {
     Route::get('/ocr', [OcrController::class, 'index'])->name('ocr.index');
     Route::post('/ocr', [OcrController::class, 'extract'])->name('ocr.extract');
     Route::post('/ocr/document', [OcrController::class, 'extractDocument'])->name('ocr.document');
@@ -50,7 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::post('/speech/transcribe', [SpeechController::class, 'transcribe'])->name('speech.transcribe');
         Route::post('/speech/speak', [SpeechController::class, 'speak'])->name('speech.speak');
 
-        // Organization event planner and portfolio (email must be verified).
+        // Organization event planner and portfolio.
         Route::get('dashboard', function () {
             return Inertia\Inertia::render('dashboard');
         })->name('dashboard');
