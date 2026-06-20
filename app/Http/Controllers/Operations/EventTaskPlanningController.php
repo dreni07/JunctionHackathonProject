@@ -24,6 +24,9 @@ class EventTaskPlanningController extends OperationsController
         return $this->handleOperation(function () use ($request, $event): JsonResponse {
             $this->authorize(Permissions::TASKS_MANAGE);
 
+            // The AI planning can take a while — never let PHP's limit kill it.
+            @set_time_limit(0);
+
             $force = $request->boolean('force');
 
             // Don't silently double-plan: if tasks already exist, return them

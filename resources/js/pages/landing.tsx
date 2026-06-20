@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useEffect, type CSSProperties } from 'react';
+import BrandLogo from '@/components/brand-logo';
 
 type Props = {
     heroOverlay?: 'soft' | 'medium' | 'strong';
@@ -50,6 +51,12 @@ body{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;ba
 .cta-btn:active{transform:translateY(-1px) scale(0.99)}
 .cta-btn .arrow{font-size:18px;line-height:1;transition:transform .4s cubic-bezier(.2,.8,.2,1)}
 .cta-btn:hover .arrow{transform:translateX(6px)}
+
+/* Secondary hero CTA (outline, no link yet) */
+.cta-btn-secondary{position:relative;display:inline-flex;align-items:center;gap:10px;padding:18px 36px;border-radius:999px;background:transparent;color:#fff;font-family:'Hanken Grotesk',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.14em;text-transform:uppercase;border:1.5px solid rgba(255,255,255,0.72);cursor:pointer;transition:color .35s ease,transform .4s cubic-bezier(.2,.8,.2,1),box-shadow .4s ease,border-color .35s ease,background .35s ease}
+.cta-btn-secondary:hover{color:#10231A;background:#F4F3EE;border-color:#F4F3EE;transform:translateY(-4px);box-shadow:0 18px 40px -14px rgba(0,0,0,0.45)}
+.cta-btn-secondary:active{transform:translateY(-1px) scale(0.99)}
+.hero-cta-row{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
 
 /* Hover behaviours ported from style-hover */
 .nav-link:hover{color:#fff}
@@ -219,34 +226,11 @@ export default function Landing({
                             className="lp-logo"
                             style={{
                                 display: 'flex',
-                                alignItems: 'baseline',
-                                gap: '10px',
+                                alignItems: 'center',
                                 textDecoration: 'none',
                             }}
                         >
-                            <span
-                                className="lp-logo-title"
-                                style={{
-                                    fontSize: '21px',
-                                    fontWeight: 800,
-                                    letterSpacing: '0.16em',
-                                    color: '#fff',
-                                }}
-                            >
-                                PIRAMIDA
-                            </span>
-                            <span
-                                className="lp-logo-sub"
-                                style={{
-                                    fontSize: '12px',
-                                    fontWeight: 500,
-                                    letterSpacing: '0.18em',
-                                    color: 'rgba(255,255,255,0.62)',
-                                    textTransform: 'uppercase',
-                                }}
-                            >
-                                Spaces
-                            </span>
+                            <BrandLogo height={44} />
                         </a>
                         <div
                             className="lp-nav-links"
@@ -335,14 +319,18 @@ export default function Landing({
                             tenants will approve — we guide every step, so
                             securing your event date is finally simple.
                         </p>
-                        <a
-                            href="#how"
-                            className="cta-btn"
+                        <div
+                            className="hero-cta-row"
                             style={{ animation: 'riseIn 0.85s ease 0.4s both' }}
                         >
-                            Start planning
-                            <span className="arrow">→</span>
-                        </a>
+                            <a href="#how" className="cta-btn">
+                                Start planning
+                                <span className="arrow">→</span>
+                            </a>
+                            <button type="button" className="cta-btn-secondary">
+                                See Demo
+                            </button>
+                        </div>
                     </div>
                 </section>
 
@@ -1018,36 +1006,10 @@ export default function Landing({
                             }}
                         >
                             <div style={{ maxWidth: '340px' }}>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'baseline',
-                                        gap: '10px',
-                                        marginBottom: '18px',
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: '21px',
-                                            fontWeight: 800,
-                                            letterSpacing: '0.16em',
-                                            color: '#fff',
-                                        }}
-                                    >
-                                        PIRAMIDA
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: '12px',
-                                            fontWeight: 500,
-                                            letterSpacing: '0.18em',
-                                            color: 'rgba(255,255,255,0.5)',
-                                            textTransform: 'uppercase',
-                                        }}
-                                    >
-                                        Spaces
-                                    </span>
-                                </div>
+                                <BrandLogo
+                                    height={42}
+                                    style={{ marginBottom: 18 }}
+                                />
                                 <p
                                     style={{
                                         fontSize: '15px',

@@ -1,7 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import BrandLogo from '@/components/brand-logo';
 import {
     Bell,
-    Building2,
     Calendar as CalendarIcon,
     CalendarDays,
     CheckCircle2,
@@ -17,10 +17,17 @@ import {
     TriangleAlert,
     Users,
     Wallet,
+    FileDown,
     X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Calendar } from '@/components/ui/calendar';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type CSSProperties,
+} from 'react';
 
 /* ---- palette (shared with the landing + planner) ---- */
 const C = {
@@ -73,26 +80,29 @@ select.ops-select:hover{border-color:${C.green}}
 .ops-mobile-top{display:flex}
 .ops-main{padding-top:0!important}
 }
-.ops-cal-wrap{
---primary:#10825B;
---primary-foreground:#fff;
---accent:#D8E2DC;
---accent-foreground:#1A1A1A;
---background:#FFFFFF;
---foreground:#1A1A1A;
---muted-foreground:#6E6E6E;
---border:#E0DCD3;
---ring:#10825B;
---radius:0.75rem;
-font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
-background:#fff;
-border:1px solid ${C.borderSoft};
-border-radius:16px;
-padding:12px 10px 16px;
-box-shadow:0 18px 40px -32px rgba(26,26,26,0.28);
-}
-.ops-cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:clamp(16px,3vw,28px);align-items:start}
-@media(max-width:820px){.ops-cal-layout{grid-template-columns:1fr}}
+.ops-cal-wrap{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;border:1px solid ${C.borderSoft};border-radius:18px;padding:18px;display:flex;flex-direction:column;height:78vh;min-height:540px;box-shadow:0 18px 40px -32px rgba(26,26,26,0.28)}
+.ops-cal-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 16px}
+.ops-cal-nav{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid ${C.border};background:#fff;cursor:pointer;color:${C.ink};transition:background .15s ease,border-color .15s ease}
+.ops-cal-nav:hover{background:${C.cream};border-color:${C.green}}
+.ops-cal-today{height:34px;padding:0 13px;border-radius:9px;border:1px solid ${C.border};background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:${C.ink};font-family:inherit;transition:background .15s ease,border-color .15s ease}
+.ops-cal-today:hover{background:${C.cream};border-color:${C.green}}
+.ops-cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.ops-cal-weekday{text-align:center;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${C.faint};padding:4px 0 10px}
+.ops-cal-days{flex:1;grid-auto-rows:1fr;gap:6px}
+.ops-cal-cell{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:8px 9px;border:1px solid ${C.borderSoft};border-radius:11px;background:${C.cream};cursor:pointer;font-family:inherit;text-align:left;transition:background .15s ease,border-color .15s ease;overflow:hidden}
+.ops-cal-cell:hover{background:#fff;border-color:${C.green}}
+.ops-cal-cell.is-out{opacity:.38}
+.ops-cal-cell.is-today{box-shadow:inset 0 0 0 1.5px ${C.green}}
+.ops-cal-cell.is-today .ops-cal-daynum{color:${C.green};font-weight:800}
+.ops-cal-cell.is-selected{background:linear-gradient(160deg,${C.green},${C.greenDeep});border-color:${C.green}}
+.ops-cal-cell.is-selected .ops-cal-daynum{color:#fff}
+.ops-cal-cell.is-selected .ops-cal-chip{background:rgba(255,255,255,0.22);color:#fff}
+.ops-cal-daynum{font-size:14px;font-weight:600;color:${C.ink}}
+.ops-cal-chip{font-size:10.5px;font-weight:700;color:${C.greenDeep};background:${C.greenTint};padding:2px 7px;border-radius:999px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ops-cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,28%);gap:clamp(16px,3vw,28px);align-items:stretch}
+@media(max-width:900px){.ops-cal-layout{grid-template-columns:1fr}.ops-cal-wrap{height:auto;min-height:480px}}
+.ops-cal-side{height:78vh;min-height:540px;overflow-y:auto;padding-right:4px}
+@media(max-width:900px){.ops-cal-side{height:auto}}
 .ops-cal-day-card{border:1px solid ${C.borderSoft};border-radius:14px;background:#fff;padding:16px 18px;transition:box-shadow .2s ease}
 .ops-cal-day-card:hover{box-shadow:0 14px 32px -28px rgba(26,26,26,0.28)}
 .ops-cal-legend{display:flex;align-items:center;gap:8px;font-size:12px;color:${C.muted};margin-top:14px;padding:0 6px}
@@ -411,23 +421,7 @@ export default function OperationsDashboard() {
                     padding: '4px 8px 16px',
                 }}
             >
-                <span
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 30,
-                        height: 30,
-                        borderRadius: 8,
-                        background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-                        color: '#fff',
-                    }}
-                >
-                    <Building2 size={16} />
-                </span>
-                <span style={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-                    PIRAMIDA
-                </span>
+                <BrandLogo height={34} />
                 <button
                     type="button"
                     aria-label="Close menu"
@@ -1304,6 +1298,347 @@ function initialsOf(name: string): string {
         .slice(0, 2)
         .join('')
         .toUpperCase();
+}
+
+function TaskDetailsModal({
+    task,
+    onClose,
+    onChangeState,
+}: {
+    task: Task;
+    onClose: () => void;
+    onChangeState: (state: string) => void;
+}) {
+    const priorityColor = PRIORITY_COLOR[task.priority] ?? C.faint;
+
+    return (
+        <div
+            className="ops-overlay"
+            onClick={onClose}
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 60,
+                background: 'rgba(26,26,26,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20,
+            }}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    width: '100%',
+                    maxWidth: 560,
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
+                    background: C.card,
+                    borderRadius: 20,
+                    border: `1px solid ${C.border}`,
+                    boxShadow: '0 40px 90px -34px rgba(26,26,26,0.55)',
+                    padding: '24px 24px 22px',
+                }}
+            >
+                {/* header */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                fontSize: 11,
+                                fontWeight: 800,
+                                letterSpacing: '0.05em',
+                                textTransform: 'uppercase',
+                                color: priorityColor,
+                                marginBottom: 6,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    background: priorityColor,
+                                }}
+                            />
+                            {task.priority_label} priority · {task.phase_label}
+                        </div>
+                        <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.25 }}>
+                            {task.name}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close"
+                        style={{
+                            flex: 'none',
+                            width: 32,
+                            height: 32,
+                            borderRadius: 9,
+                            border: `1px solid ${C.border}`,
+                            background: C.card,
+                            color: C.muted,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* event + assignee */}
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 10,
+                        marginTop: 16,
+                    }}
+                >
+                    <div
+                        style={{
+                            background: C.cream,
+                            borderRadius: 12,
+                            padding: '11px 13px',
+                        }}
+                    >
+                        <div style={detailLabelStyle}>For event</div>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                fontSize: 13.5,
+                                fontWeight: 600,
+                                marginTop: 3,
+                            }}
+                        >
+                            <CalendarDays size={14} color={C.green} />
+                            {task.event?.title ?? 'Event'}
+                        </div>
+                        {task.event?.start_time && (
+                            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                                {formatDate(task.event.start_time)}
+                            </div>
+                        )}
+                    </div>
+                    <div
+                        style={{
+                            background: C.cream,
+                            borderRadius: 12,
+                            padding: '11px 13px',
+                        }}
+                    >
+                        <div style={detailLabelStyle}>Assigned to</div>
+                        {task.worker ? (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 7,
+                                    marginTop: 3,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: '50%',
+                                        background: C.greenTint,
+                                        color: C.greenDeep,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    {initialsOf(task.worker.name)}
+                                </span>
+                                <span style={{ minWidth: 0 }}>
+                                    <span
+                                        style={{
+                                            display: 'block',
+                                            fontSize: 13.5,
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        {task.worker.name}
+                                    </span>
+                                    {task.worker.worker_role && (
+                                        <span style={{ fontSize: 11.5, color: C.muted }}>
+                                            {task.worker.worker_role}
+                                        </span>
+                                    )}
+                                </span>
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: 13, color: C.faint, marginTop: 4 }}>
+                                Unassigned
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* quick facts */}
+                <div
+                    style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginTop: 12,
+                    }}
+                >
+                    {task.estimated_minutes != null && (
+                        <Fact label="Est. time" value={`~${formatMinutes(task.estimated_minutes)}`} />
+                    )}
+                    {task.location && <Fact label="Location" value={task.location} />}
+                    {task.due_at && (
+                        <Fact label="Due" value={formatDate(task.due_at)} />
+                    )}
+                </div>
+
+                {task.description && (
+                    <p
+                        style={{
+                            fontSize: 14,
+                            color: C.ink,
+                            lineHeight: 1.6,
+                            marginTop: 16,
+                            marginBottom: 0,
+                        }}
+                    >
+                        {task.description}
+                    </p>
+                )}
+
+                {/* checklist */}
+                {task.checklist.length > 0 && (
+                    <div style={{ marginTop: 18 }}>
+                        <div style={detailLabelStyle}>Steps</div>
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 6,
+                                marginTop: 8,
+                            }}
+                        >
+                            {task.checklist.map((step, i) => (
+                                <div
+                                    key={i}
+                                    style={{
+                                        display: 'flex',
+                                        gap: 10,
+                                        alignItems: 'flex-start',
+                                        fontSize: 13.5,
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: 20,
+                                            height: 20,
+                                            borderRadius: '50%',
+                                            background: C.greenTint,
+                                            color: C.greenDeep,
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            flex: 'none',
+                                        }}
+                                    >
+                                        {i + 1}
+                                    </span>
+                                    <span style={{ paddingTop: 1 }}>{step}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* resources */}
+                {task.resources.length > 0 && (
+                    <div style={{ marginTop: 18 }}>
+                        <div style={detailLabelStyle}>What you'll need</div>
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 6,
+                                marginTop: 8,
+                            }}
+                        >
+                            {task.resources.map((r, i) => (
+                                <span
+                                    key={i}
+                                    style={{
+                                        fontSize: 12.5,
+                                        fontWeight: 600,
+                                        color: C.ink,
+                                        background: C.cream,
+                                        border: `1px solid ${C.borderSoft}`,
+                                        padding: '4px 10px',
+                                        borderRadius: 8,
+                                    }}
+                                >
+                                    {r}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* state changer */}
+                <div style={{ marginTop: 20 }}>
+                    <div style={detailLabelStyle}>Status</div>
+                    <select
+                        className="ops-select"
+                        value={task.state}
+                        onChange={(e) => onChangeState(e.target.value)}
+                        style={{ width: '100%', marginTop: 8, padding: '10px 12px' }}
+                    >
+                        {TASK_STATES.map((s) => (
+                            <option key={s} value={s}>
+                                {labelize(s)}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+const detailLabelStyle: CSSProperties = {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    color: C.faint,
+};
+
+function Fact({ label, value }: { label: string; value: string }) {
+    return (
+        <span
+            style={{
+                display: 'inline-flex',
+                flexDirection: 'column',
+                gap: 1,
+                padding: '6px 11px',
+                borderRadius: 9,
+                border: `1px solid ${C.borderSoft}`,
+                background: C.card,
+            }}
+        >
+            <span style={{ ...detailLabelStyle, fontSize: 9.5 }}>{label}</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{value}</span>
+        </span>
+    );
 }
 
 /* ============================ ALERTS ============================ */
@@ -2506,7 +2841,7 @@ type PlannedTask = {
     description: string | null;
     phase: string;
     phase_label: string;
-    worker: { id: number; name: string; role: string | null } | null;
+    worker: { id: number; name: string; worker_role: string | null } | null;
 };
 
 function TaskPlanningModal({
@@ -2520,26 +2855,46 @@ function TaskPlanningModal({
         'planning',
     );
     const [tasks, setTasks] = useState<PlannedTask[]>([]);
-    const [summary, setSummary] = useState('');
 
+    // The AI plans the tasks in the background right after acceptance — we just
+    // poll for them to appear, so it never depends on one long request.
     useEffect(() => {
         let active = true;
+        let tries = 0;
 
-        postJson(`/operations/events/${event.id}/plan-tasks`, {})
-            .then((r) => r.json())
-            .then((json) => {
-                if (!active) {
-                    return;
-                }
-                const data = json?.data ?? {};
-                setTasks(data.tasks ?? []);
-                setSummary(data.summary ?? '');
-                setStatus('done');
+        const poll = () => {
+            fetch(`/operations/tasks?event_id=${event.id}&per_page=100`, {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
             })
-            .catch(() => active && setStatus('error'));
+                .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+                .then((json) => {
+                    if (!active) {
+                        return;
+                    }
+                    const list: PlannedTask[] = json?.data ?? [];
+                    tries += 1;
+                    if (list.length > 0) {
+                        setTasks(list);
+                        setStatus('done');
+                    } else if (tries >= 60) {
+                        setStatus('error');
+                    } else {
+                        timer = window.setTimeout(poll, 3000);
+                    }
+                })
+                .catch(() => {
+                    if (active) {
+                        timer = window.setTimeout(poll, 3000);
+                    }
+                });
+        };
+
+        let timer = window.setTimeout(poll, 1500);
 
         return () => {
             active = false;
+            window.clearTimeout(timer);
         };
     }, [event.id]);
 
@@ -2550,7 +2905,7 @@ function TaskPlanningModal({
         if (!byWorker.has(key)) {
             byWorker.set(key, {
                 name: task.worker?.name ?? 'Unassigned',
-                role: task.worker?.role ?? null,
+                role: task.worker?.worker_role ?? null,
                 items: [],
             });
         }
@@ -2684,7 +3039,7 @@ function TaskPlanningModal({
                         >
                             {tasks.length > 0
                                 ? `${tasks.length} tasks created and assigned across the team.`
-                                : summary || 'No tasks were created.'}
+                                : 'No tasks were created.'}
                         </div>
 
                         {Array.from(byWorker.values()).map((group, gi) => (
@@ -2791,14 +3146,130 @@ function toDateKey(date: Date): string {
     return `${year}-${month}-${day}`;
 }
 
+const CAL_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function MonthCalendar({
+    month,
+    onMonthChange,
+    selected,
+    onSelect,
+    eventsByDate,
+}: {
+    month: Date;
+    onMonthChange: (d: Date) => void;
+    selected: Date | undefined;
+    onSelect: (d: Date) => void;
+    eventsByDate: Map<string, Event[]>;
+}) {
+    const year = month.getFullYear();
+    const m = month.getMonth();
+    const startOffset = (new Date(year, m, 1).getDay() + 6) % 7; // Monday-first
+    const todayKey = toDateKey(new Date());
+    const selectedKey = selected ? toDateKey(selected) : null;
+
+    const cells = Array.from(
+        { length: 42 },
+        (_, i) => new Date(year, m, i - startOffset + 1),
+    );
+
+    return (
+        <div className="ops-cal-wrap">
+            <div className="ops-cal-head">
+                <div style={{ fontSize: 18, fontWeight: 800 }}>
+                    {month.toLocaleDateString(undefined, {
+                        month: 'long',
+                        year: 'numeric',
+                    })}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                        type="button"
+                        className="ops-cal-today"
+                        onClick={() => onMonthChange(new Date())}
+                    >
+                        Today
+                    </button>
+                    <button
+                        type="button"
+                        className="ops-cal-nav"
+                        aria-label="Previous month"
+                        onClick={() => onMonthChange(new Date(year, m - 1, 1))}
+                    >
+                        ‹
+                    </button>
+                    <button
+                        type="button"
+                        className="ops-cal-nav"
+                        aria-label="Next month"
+                        onClick={() => onMonthChange(new Date(year, m + 1, 1))}
+                    >
+                        ›
+                    </button>
+                </div>
+            </div>
+
+            <div className="ops-cal-grid">
+                {CAL_WEEKDAYS.map((w) => (
+                    <div key={w} className="ops-cal-weekday">
+                        {w}
+                    </div>
+                ))}
+            </div>
+
+            <div className="ops-cal-grid ops-cal-days">
+                {cells.map((date, i) => {
+                    const key = toDateKey(date);
+                    const inMonth = date.getMonth() === m;
+                    const dayEvents = eventsByDate.get(key) ?? [];
+                    const cls = [
+                        'ops-cal-cell',
+                        inMonth ? '' : 'is-out',
+                        key === todayKey ? 'is-today' : '',
+                        key === selectedKey ? 'is-selected' : '',
+                    ]
+                        .filter(Boolean)
+                        .join(' ');
+
+                    return (
+                        <button
+                            key={i}
+                            type="button"
+                            className={cls}
+                            onClick={() => onSelect(date)}
+                        >
+                            <span className="ops-cal-daynum">
+                                {date.getDate()}
+                            </span>
+                            {dayEvents.length > 0 && (
+                                <span
+                                    className="ops-cal-chip"
+                                    title={dayEvents
+                                        .map((e) => e.title)
+                                        .join(', ')}
+                                >
+                                    {dayEvents.length === 1
+                                        ? (dayEvents[0].title ?? '1 event')
+                                        : `${dayEvents.length} events`}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 function CalendarView() {
-    const { data, loading, reload } = useApi<{ data: Event[] }>(
+    const { data, reload } = useApi<{ data: Event[] }>(
         '/operations/events?per_page=100',
     );
     const events = data?.data ?? [];
     const [selected, setSelected] = useState<Date | undefined>(undefined);
+    const [month, setMonth] = useState<Date>(() => new Date());
+    const jumpedRef = useRef(false);
 
-    const { eventDates, eventsByDate, upcomingMonth } = useMemo(() => {
+    const { eventsByDate, upcomingMonth } = useMemo(() => {
         const byDate = new Map<string, Event[]>();
         const dates: Date[] = [];
 
@@ -2839,11 +3310,20 @@ function CalendarView() {
         dates.sort((a, b) => a.getTime() - b.getTime());
 
         return {
-            eventDates: dates,
             eventsByDate: byDate,
             upcomingMonth: dates[0] ?? new Date(),
         };
     }, [events]);
+
+    // Jump to the first month that actually has events, once they've loaded.
+    useEffect(() => {
+        if (!jumpedRef.current && events.length > 0) {
+            jumpedRef.current = true;
+            setMonth(
+                new Date(upcomingMonth.getFullYear(), upcomingMonth.getMonth(), 1),
+            );
+        }
+    }, [events.length, upcomingMonth]);
 
     const selectedEvents = selected
         ? (eventsByDate.get(toDateKey(selected)) ?? [])
@@ -2867,38 +3347,20 @@ function CalendarView() {
 
             <div className="ops-cal-layout">
                 <div>
-                    <div className="ops-cal-wrap">
-                        {loading ? (
-                            <div
-                                style={{
-                                    minHeight: 320,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: C.muted,
-                                    fontSize: 14,
-                                }}
-                            >
-                                Loading calendar…
-                            </div>
-                        ) : (
-                            <Calendar
-                                mode="single"
-                                selected={selected}
-                                onSelect={setSelected}
-                                defaultMonth={upcomingMonth}
-                                modifiers={{ hasEvent: eventDates }}
-                                className="mx-auto"
-                            />
-                        )}
-                    </div>
+                    <MonthCalendar
+                        month={month}
+                        onMonthChange={setMonth}
+                        selected={selected}
+                        onSelect={setSelected}
+                        eventsByDate={eventsByDate}
+                    />
                     <div className="ops-cal-legend">
                         <span className="ops-cal-legend-dot" />
                         Dates with scheduled events
                     </div>
                 </div>
 
-                <div>
+                <div className="ops-cal-side">
                     <div
                         style={{
                             fontSize: 12,
@@ -3534,6 +3996,10 @@ function MoneyView() {
         }
     };
 
+    const exportExpenses = () => {
+        window.location.assign('/operations/finance/expenses/export');
+    };
+
     const budgetUsedPct =
         summary && summary.annual_budget > 0
             ? Math.min(
@@ -3827,8 +4293,70 @@ function MoneyView() {
 
             <div style={{ height: 18 }} />
 
-            <Panel title="Recent expenses" loading={loading}>
-                {(finance?.expenses ?? []).length === 0 ? (
+            <div
+                className="ops-card"
+                style={{
+                    background: C.card,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 16,
+                    padding: '18px 20px',
+                }}
+            >
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        marginBottom: 6,
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                            color: C.faint,
+                        }}
+                    >
+                        Recent expenses
+                    </div>
+                    <button
+                        type="button"
+                        className="ops-btn"
+                        disabled={
+                            loading || (finance?.expenses ?? []).length === 0
+                        }
+                        onClick={exportExpenses}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '6px 11px',
+                            borderRadius: 8,
+                            border: `1px solid ${C.border}`,
+                            background: C.card,
+                            color: C.muted,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor:
+                                loading || (finance?.expenses ?? []).length === 0
+                                    ? 'not-allowed'
+                                    : 'pointer',
+                            opacity:
+                                loading || (finance?.expenses ?? []).length === 0
+                                    ? 0.55
+                                    : 1,
+                        }}
+                    >
+                        <FileDown size={13} />
+                        Export
+                    </button>
+                </div>
+                {loading ? (
+                    <Empty text="Loading…" />
+                ) : (finance?.expenses ?? []).length === 0 ? (
                     <Empty text="No expenses logged." />
                 ) : (
                     (finance?.expenses ?? []).map((expense) => (
@@ -3856,7 +4384,7 @@ function MoneyView() {
                         </div>
                     ))
                 )}
-            </Panel>
+            </div>
         </>
     );
 }

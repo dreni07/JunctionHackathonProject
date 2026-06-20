@@ -7,13 +7,18 @@ namespace App\Http\Controllers\Operations;
 use App\Http\Requests\Operations\StoreTenantExpenseRequest;
 use App\Http\Requests\Operations\StoreTenantPaymentRequest;
 use App\Http\Requests\Operations\UpdateTenantFinanceProfileRequest;
+use App\Services\Operations\TenantExpenseExportService;
 use App\Services\Operations\TenantFinanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TenantFinanceController extends OperationsController
 {
-    public function __construct(private readonly TenantFinanceService $service) {}
+    public function __construct(
+        private readonly TenantFinanceService $service,
+        private readonly TenantExpenseExportService $expenseExport,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -61,5 +66,10 @@ class TenantFinanceController extends OperationsController
 
             return $this->json($this->service->serializeExpense($expense), 201);
         });
+    }
+
+    public function exportExpenses(Request $request): StreamedResponse
+    {
+        return $this->expenseExport->download($request->user());
     }
 }

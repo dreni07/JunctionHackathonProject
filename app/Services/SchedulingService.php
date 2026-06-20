@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Reservation;
+use App\Models\VenueUnavailability;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -51,11 +52,27 @@ class SchedulingService
      */
     public function isAvailable(string $spaceId, CarbonImmutable $start, CarbonImmutable $end): bool
     {
-        return ! Reservation::query()
+        $booked = Reservation::query()
             ->where('space_id', $spaceId)
             ->blocking()
             ->overlapping($start->toDateTimeString(), $end->toDateTimeString())
             ->exists();
+
+        // A blocked or out-of-service venue is just as unavailable as a booked one.
+        return ! $booked && $this->unavailabilityFor($spaceId, $start, $end) === null;
+    }
+
+    /**
+     * The block / out-of-service spell that makes a venue unusable for the
+     * given window, or null if none — used to tell the organizer the reason.
+     */
+    public function unavailabilityFor(string $spaceId, CarbonImmutable $start, CarbonImmutable $end): ?VenueUnavailability
+    {
+        return VenueUnavailability::query()
+            ->where('space_id', $spaceId)
+            ->overlapping($start, $end)
+            ->orderByRaw("CASE WHEN type = 'broken' THEN 0 ELSE 1 END")
+            ->first();
     }
 
     private function parse(string $value): ?CarbonImmutable

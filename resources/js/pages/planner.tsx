@@ -1,4 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import BrandLogo from '@/components/brand-logo';
 import {
     ArrowLeft,
     ArrowUp,
@@ -18,7 +19,6 @@ import {
     Sparkles,
     Tag,
     TriangleAlert,
-    Triangle,
     Upload,
     UploadCloud,
     UserRoundPen,
@@ -233,33 +233,8 @@ function PlannerHeader({
                         minWidth: 0,
                     }}
                 >
-                    <span
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 38,
-                            height: 38,
-                            flex: 'none',
-                            borderRadius: 12,
-                            background: `linear-gradient(145deg, ${C.green}, ${C.greenDark})`,
-                            boxShadow: '0 10px 24px -12px rgba(16,130,91,0.55)',
-                        }}
-                    >
-                        <Triangle size={16} fill="#fff" color="#fff" />
-                    </span>
+                    <BrandLogo height={38} />
                     <span style={{ minWidth: 0 }}>
-                        <span
-                            style={{
-                                display: 'block',
-                                fontWeight: 800,
-                                letterSpacing: '0.06em',
-                                fontSize: 13.5,
-                                lineHeight: 1.1,
-                            }}
-                        >
-                            PIRAMIDA
-                        </span>
                         <span
                             className="pl-header-sub"
                             style={{
@@ -2111,12 +2086,29 @@ function ChatMode({
                         key={index}
                         style={{
                             display: 'flex',
+                            gap: 10,
+                            alignItems: 'flex-end',
                             justifyContent:
                                 message.role === 'user'
                                     ? 'flex-end'
                                     : 'flex-start',
                         }}
                     >
+                        {message.role === 'assistant' && (
+                            <img
+                                src="/assets/kleopatra-listening.png?v=2"
+                                alt="Cleopatra"
+                                style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                    flex: 'none',
+                                    border: `1px solid ${C.border}`,
+                                    background: C.greenTint,
+                                }}
+                            />
+                        )}
                         <div
                             style={{
                                 maxWidth: '82%',

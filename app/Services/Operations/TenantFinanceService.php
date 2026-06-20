@@ -15,6 +15,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\QuotationLineItem;
 use App\Models\Task;
+use App\Models\Tenant;
 use App\Models\TenantExpense;
 use App\Models\TenantFinanceProfile;
 use App\Models\User;
@@ -124,6 +125,23 @@ class TenantFinanceService
             'notes' => $data['notes'] ?? null,
             'recorded_by' => $manager->id,
         ]);
+    }
+
+    /**
+     * @return array{tenant: Tenant, currency: string}
+     */
+    public function exportContext(User $manager): array
+    {
+        $this->assertManager($manager);
+
+        $tenantId = (int) $manager->tenant_id;
+        $tenant = Tenant::query()->findOrFail($tenantId);
+        $profile = $this->profileForTenant($tenantId);
+
+        return [
+            'tenant' => $tenant,
+            'currency' => $profile->currency,
+        ];
     }
 
     /**

@@ -1,4 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
+import BrandLogo from '@/components/brand-logo';
 import type { ReactNode } from 'react';
 
 const C = {
@@ -138,15 +139,13 @@ export default function Facility({
                     href="/"
                     style={{
                         display: 'flex',
-                        alignItems: 'baseline',
-                        gap: 8,
+                        alignItems: 'center',
+                        gap: 10,
                         textDecoration: 'none',
                         color: C.ink,
                     }}
                 >
-                    <span style={{ fontWeight: 800, letterSpacing: '0.06em' }}>
-                        PIRAMIDA
-                    </span>
+                    <BrandLogo height={32} />
                     <span style={{ color: C.faint, fontSize: 13 }}>
                         Facility data
                     </span>
