@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use App\Services\PyramidKnowledgeIngestionService;
 use App\Services\PyramidTableRegistry;
 use Database\Seeders\RolePermissionSeeder;
@@ -48,12 +49,22 @@ describe('PyramidTableRegistry', function () {
 });
 
 describe('Pyramid ingest page', function () {
-    it('is publicly accessible', function () {
+    it('requires authentication', function () {
+        auth()->logout();
+
         $this->get(route('pyramid.ingest.index'))
+            ->assertRedirect(route('login'));
+    });
+
+    it('is accessible to signed-in users', function () {
+        $this->actingAs(User::factory()->create())
+            ->get(route('pyramid.ingest.index'))
             ->assertOk();
     });
 
     it('shows ingested pyramid knowledge tables and rows', function () {
+        $this->actingAs(User::factory()->create());
+
         $registry = app(PyramidTableRegistry::class);
 
         $registry->createTable('project_overview', [
@@ -76,7 +87,9 @@ describe('Pyramid ingest page', function () {
                 ->where('tables.0.rows.0.official_name', 'Pyramid of Tirana'));
     });
 
-    it('allows guests to ingest a pdf via json', function () {
+    it('allows authenticated users to ingest a pdf via json', function () {
+        $this->actingAs(User::factory()->create());
+
         $this->mock(PyramidKnowledgeIngestionService::class, function ($mock): void {
             $mock->shouldReceive('ingest')
                 ->once()

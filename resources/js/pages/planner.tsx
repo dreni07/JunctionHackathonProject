@@ -271,6 +271,26 @@ function PlannerHeader({
                 >
                     {user ? (
                         <>
+                            <Link
+                                href="/my-events"
+                                className="pl-header-action pl-header-sub"
+                                style={{
+                                    display: 'none',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '8px 14px',
+                                    borderRadius: 999,
+                                    border: `1px solid ${C.borderSoft}`,
+                                    background: C.card,
+                                    color: C.ink,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    textDecoration: 'none',
+                                }}
+                            >
+                                <CalendarClock size={15} />
+                                My events
+                            </Link>
                             {profileCompletion !== null &&
                                 profileCompletion < 100 && (
                                     <Link
@@ -457,6 +477,15 @@ function PlannerHeader({
                                                     </div>
                                                 )}
                                         </div>
+                                        <Link
+                                            href="/my-events"
+                                            className="pl-header-menu-item"
+                                            role="menuitem"
+                                            onClick={() => setMenuOpen(false)}
+                                        >
+                                            <CalendarClock size={16} />
+                                            My events
+                                        </Link>
                                         <Link
                                             href="/profile/complete"
                                             className="pl-header-menu-item"
@@ -892,6 +921,39 @@ function Home({ onSelect }: { onSelect: (mode: Mode) => void }) {
                             chats, or reads your brief — then recommends venues,
                             pricing, and a path to submit.
                         </p>
+                        <Link
+                            href="/my-events"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                marginTop: 20,
+                                padding: '11px 18px',
+                                borderRadius: 999,
+                                border: `1px solid ${C.borderSoft}`,
+                                background: C.card,
+                                color: C.ink,
+                                fontSize: 14,
+                                fontWeight: 700,
+                                textDecoration: 'none',
+                                boxShadow:
+                                    '0 10px 28px -18px rgba(26,26,26,0.35)',
+                                transition:
+                                    'transform .2s ease, border-color .2s ease, box-shadow .2s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform =
+                                    'translateY(-1px)';
+                                e.currentTarget.style.borderColor = `color-mix(in srgb, ${C.green} 28%, ${C.border})`;
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = '';
+                                e.currentTarget.style.borderColor = C.borderSoft;
+                            }}
+                        >
+                            <CalendarClock size={16} color={C.green} />
+                            View my events
+                        </Link>
                     </div>
                     <div style={{ justifySelf: 'center' }}>
                         <Orb size={108} phase="idle" />

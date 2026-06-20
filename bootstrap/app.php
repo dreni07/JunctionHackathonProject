@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureOperationalAccount;
+use App\Http\Middleware\EnsureOrganizationAccount;
 use App\Http\Middleware\EnsureTenantManager;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->alias([
+            'organization' => EnsureOrganizationAccount::class,
             'operational' => EnsureOperationalAccount::class,
             'tenant.manager' => EnsureTenantManager::class,
         ]);

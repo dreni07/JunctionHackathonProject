@@ -37,7 +37,7 @@ test('email can be verified with a valid code', function () {
     Event::assertDispatched(Verified::class);
 
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
-    $response->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+    $response->assertRedirect(route('planner', absolute: false).'?verified=1');
 });
 
 test('email is not verified with an invalid code', function () {
@@ -92,10 +92,10 @@ test('verified user is redirected to dashboard from verification prompt', functi
     $response = $this->actingAs($user)->get(route('verification.notice'));
 
     Event::assertNotDispatched(Verified::class);
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('planner', absolute: false));
 });
 
-test('already verified user submitting a code is redirected to dashboard', function () {
+test('already verified user submitting a code is redirected to planner', function () {
     $user = User::factory()->create();
     $code = app(EmailVerificationCodeService::class)->issue($user);
 
@@ -103,7 +103,7 @@ test('already verified user submitting a code is redirected to dashboard', funct
 
     $this->actingAs($user)
         ->post(route('verification.verify-code'), ['code' => $code])
-        ->assertRedirect(route('dashboard', absolute: false));
+        ->assertRedirect(route('planner', absolute: false));
 
     Event::assertNotDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();

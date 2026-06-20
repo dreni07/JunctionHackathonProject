@@ -9,10 +9,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Restrict Pyramid back-office routes to tenant-based operational accounts.
- * External organization accounts must use the planner/dashboard instead.
+ * Restrict planner and event-scheduling routes to external organization accounts.
+ * Pyramid operational staff must use the operations dashboard instead.
  */
-class EnsureOperationalAccount
+class EnsureOrganizationAccount
 {
     /**
      * @param  Closure(Request): Response  $next
@@ -21,16 +21,16 @@ class EnsureOperationalAccount
     {
         $user = $request->user();
 
-        if ($user !== null && $user->isOperational()) {
+        if ($user !== null && $user->isOrganization()) {
             return $next($request);
         }
 
         if ($request->expectsJson()) {
-            abort(Response::HTTP_FORBIDDEN, 'Operations access is limited to Pyramid operational staff.');
+            abort(Response::HTTP_FORBIDDEN, 'Planner access is limited to organization accounts.');
         }
 
         return redirect()
-            ->route('planner')
-            ->with('status', 'Operations access is limited to Pyramid operational staff.');
+            ->route('operations.home')
+            ->with('status', 'Planner access is limited to organization accounts.');
     }
 }
