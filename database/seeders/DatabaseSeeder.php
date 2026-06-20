@@ -64,5 +64,8 @@ class DatabaseSeeder extends Seeder
 
         // Events, tasks, and alerts so the operations dashboard has data.
         $this->call(OperationsDemoSeeder::class);
+
+        // A demo organizer with a portfolio of booked events for "My events".
+        $this->call(OrganizationPortfolioSeeder::class);
     }
 }

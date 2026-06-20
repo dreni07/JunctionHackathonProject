@@ -18,9 +18,13 @@ createInertiaApp({
                 return null;
             case name === 'planner':
                 return null;
+            case name === 'profile/complete':
+                return null;
             case name === 'facility':
                 return null;
             case name.startsWith('operations/'):
+                return null;
+            case name.startsWith('my-events/'):
                 return null;
             case name.startsWith('documents/'):
                 return null;

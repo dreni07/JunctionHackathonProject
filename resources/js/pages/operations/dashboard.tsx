@@ -14,7 +14,6 @@ import {
     Menu,
     RefreshCw,
     TriangleAlert,
-    UserRoundPen,
     Users,
     Wallet,
     X,
@@ -88,7 +87,6 @@ type PageProps = {
     auth: {
         user: AuthUser;
         permissions: string[];
-        profileCompletion: number | null;
     };
     tenant: { id: number; title: string; description: string | null } | null;
     isTenantManager: boolean;
@@ -121,9 +119,17 @@ type Alert = {
     title: string;
     message: string;
     source: string;
+    source_label?: string;
+    category?: string | null;
+    category_label?: string | null;
     severity: string;
+    severity_label?: string;
     status: string;
+    status_label?: string;
     created_at: string | null;
+    resolved_at?: string | null;
+    raised_by?: { id: number; name: string; worker_role: string | null } | null;
+    spaces?: { id: string; name: string; zone_class: string; floor: number }[];
 };
 
 type Event = {
@@ -659,9 +665,6 @@ export default function OperationsDashboard() {
                 }}
             >
                 <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-                    <ProfileCompletionBanner
-                        completion={auth.profileCompletion}
-                    />
                     {view === 'overview' && (
                         <Overview user={auth.user} tenant={tenant} />
                     )}
@@ -669,7 +672,7 @@ export default function OperationsDashboard() {
                         <RequestsView canManage={can('requests.manage')} />
                     )}
                     {view === 'tasks' && <TasksView user={auth.user} />}
-                    {view === 'alerts' && <AlertsView />}
+                    {view === 'alerts' && <AlertsView userId={auth.user.id} />}
                     {view === 'events' && <EventsView />}
                     {view === 'spaces' && <SpacesView />}
                     {view === 'team' && isTenantManager && (
@@ -679,96 +682,6 @@ export default function OperationsDashboard() {
                 </div>
             </main>
             </div>
-        </div>
-    );
-}
-
-/* ============================ PROFILE NUDGE ============================ */
-
-function ProfileCompletionBanner({
-    completion,
-}: {
-    completion: number | null;
-}) {
-    const [dismissed, setDismissed] = useState(false);
-
-    if (dismissed || completion === null || completion >= 100) {
-        return null;
-    }
-
-    return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                marginBottom: 22,
-                padding: '14px 16px',
-                borderRadius: 12,
-                border: `1px solid ${C.greenTint}`,
-                background: C.card,
-                boxShadow: '0 10px 28px -24px rgba(16,130,91,0.45)',
-            }}
-        >
-            <span
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 40,
-                    height: 40,
-                    flex: 'none',
-                    borderRadius: '50%',
-                    background: C.greenTint,
-                    color: C.green,
-                }}
-            >
-                <UserRoundPen size={18} />
-            </span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700 }}>
-                    Complete your profile
-                </div>
-                <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
-                    Add a photo and a few details — your profile is {completion}%
-                    complete.
-                </div>
-            </div>
-            <Link
-                href="/profile/complete"
-                style={{
-                    flex: 'none',
-                    padding: '9px 14px',
-                    borderRadius: 9,
-                    background: C.green,
-                    color: '#fff',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    textDecoration: 'none',
-                }}
-            >
-                Complete now
-            </Link>
-            <button
-                type="button"
-                onClick={() => setDismissed(true)}
-                aria-label="Dismiss"
-                style={{
-                    flex: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 28,
-                    height: 28,
-                    border: 'none',
-                    borderRadius: 8,
-                    background: 'transparent',
-                    color: C.muted,
-                    cursor: 'pointer',
-                }}
-            >
-                <X size={16} />
-            </button>
         </div>
     );
 }
@@ -1202,43 +1115,142 @@ function KanbanCard({
 
 /* ============================ ALERTS ============================ */
 
-function AlertsView() {
+const SEVERITY_OPTIONS = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+];
+
+const CATEGORY_OPTIONS = [
+    { value: 'maintenance', label: 'Maintenance' },
+    { value: 'safety', label: 'Safety' },
+    { value: 'equipment', label: 'Equipment' },
+    { value: 'cleanliness', label: 'Cleanliness' },
+    { value: 'security', label: 'Security' },
+    { value: 'staffing', label: 'Staffing' },
+    { value: 'scheduling', label: 'Scheduling' },
+    { value: 'other', label: 'Other' },
+];
+
+const ALERT_SCOPES = [
+    { key: 'open', label: 'Open' },
+    { key: 'mine', label: 'Raised by me' },
+    { key: 'all', label: 'All' },
+] as const;
+
+function AlertsView({ userId }: { userId: number }) {
+    const [scope, setScope] = useState<'open' | 'mine' | 'all'>('open');
+    const [raising, setRaising] = useState(false);
     const { data, loading, reload } = useApi<{ data: Alert[] }>(
         '/operations/alerts?per_page=100',
     );
-    const alerts = data?.data ?? [];
+    const all = data?.data ?? [];
+
+    const alerts = all.filter((a) => {
+        if (scope === 'mine') return a.raised_by?.id === userId;
+        if (scope === 'open') return a.status !== 'dismissed' && a.status !== 'resolved';
+        return true;
+    });
 
     return (
         <>
-            <Header
-                title="Alerts"
-                subtitle="Notifications from the agents and the system."
-                onRefresh={reload}
-            />
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    marginBottom: 16,
+                }}
+            >
+                <Header
+                    title="Alerts"
+                    subtitle="Flags from the team, the agents and the system — raise one if something needs attention."
+                    onRefresh={reload}
+                />
+                <button
+                    type="button"
+                    onClick={() => setRaising(true)}
+                    style={{
+                        flex: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        padding: '9px 15px',
+                        borderRadius: 10,
+                        border: 'none',
+                        background: C.danger,
+                        color: '#fff',
+                        fontSize: 13.5,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                    }}
+                >
+                    <TriangleAlert size={15} />
+                    Raise alert
+                </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {ALERT_SCOPES.map((s) => (
+                    <button
+                        key={s.key}
+                        type="button"
+                        className="ops-pill"
+                        onClick={() => setScope(s.key)}
+                        style={{
+                            padding: '7px 14px',
+                            borderRadius: 999,
+                            border: `1px solid ${scope === s.key ? C.green : C.border}`,
+                            background: scope === s.key ? C.greenTint : C.card,
+                            color: scope === s.key ? C.green : C.muted,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        {s.label}
+                    </button>
+                ))}
+            </div>
+
             <Panel title={null} loading={loading}>
                 {alerts.length === 0 ? (
-                    <Empty text="No alerts." />
+                    <Empty text="No alerts here." />
                 ) : (
                     alerts.map((alert) => (
-                        <AlertRow
-                            key={alert.id}
-                            alert={alert}
-                            onChanged={reload}
-                        />
+                        <AlertRow key={alert.id} alert={alert} onChanged={reload} />
                     ))
                 )}
             </Panel>
+
+            {raising && (
+                <RaiseAlertModal
+                    onClose={() => setRaising(false)}
+                    onRaised={() => {
+                        setRaising(false);
+                        reload();
+                    }}
+                />
+            )}
         </>
     );
 }
 
 function AlertRow({ alert, onChanged }: { alert: Alert; onChanged: () => void }) {
-    const act = async (action: 'read' | 'dismiss') => {
+    const [busy, setBusy] = useState(false);
+    const act = async (action: 'read' | 'dismiss' | 'resolve') => {
+        setBusy(true);
         await mutate(`/operations/alerts/${alert.id}/${action}`, 'PATCH');
+        setBusy(false);
         onChanged();
     };
 
-    const dim = alert.status === 'dismissed' || alert.status === 'read';
+    const dim =
+        alert.status === 'dismissed' ||
+        alert.status === 'read' ||
+        alert.status === 'resolved';
+    const resolved = alert.status === 'resolved';
 
     return (
         <div
@@ -1246,48 +1258,90 @@ function AlertRow({ alert, onChanged }: { alert: Alert; onChanged: () => void })
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: 12,
-                padding: '13px 0',
+                padding: '14px 0',
                 borderTop: `1px solid ${C.borderSoft}`,
-                opacity: dim ? 0.6 : 1,
+                opacity: dim ? 0.65 : 1,
             }}
         >
             <SeverityTag severity={alert.severity} />
             <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>
-                    {alert.title}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14.5, fontWeight: 600 }}>{alert.title}</span>
+                    {alert.category_label && (
+                        <span
+                            style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: C.greenDeep,
+                                background: C.greenTint,
+                                padding: '2px 8px',
+                                borderRadius: 999,
+                            }}
+                        >
+                            {alert.category_label}
+                        </span>
+                    )}
+                    {resolved && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.green, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <CheckCircle2 size={13} /> Resolved
+                        </span>
+                    )}
                 </div>
-                <div
-                    style={{
-                        fontSize: 13,
-                        color: C.muted,
-                        marginTop: 2,
-                        lineHeight: 1.5,
-                    }}
-                >
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 3, lineHeight: 1.5 }}>
                     {alert.message}
                 </div>
-                <div style={{ fontSize: 11.5, color: C.faint, marginTop: 4 }}>
-                    {labelize(alert.source)}
+
+                {alert.spaces && alert.spaces.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                        {alert.spaces.map((s) => (
+                            <span
+                                key={s.id}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    fontSize: 11.5,
+                                    fontWeight: 600,
+                                    color: C.ink,
+                                    background: C.cream,
+                                    border: `1px solid ${C.borderSoft}`,
+                                    padding: '3px 9px',
+                                    borderRadius: 7,
+                                }}
+                            >
+                                <MapPin size={11} color={C.faint} />
+                                {s.name}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                <div style={{ fontSize: 11.5, color: C.faint, marginTop: 7 }}>
+                    {alert.raised_by
+                        ? `${alert.raised_by.name}${alert.raised_by.worker_role ? ` · ${alert.raised_by.worker_role}` : ''}`
+                        : alert.source_label ?? labelize(alert.source)}
                     {alert.created_at ? ` · ${formatDate(alert.created_at)}` : ''}
                 </div>
             </div>
-            {alert.status !== 'dismissed' && (
+
+            {!resolved && alert.status !== 'dismissed' && (
                 <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
-                    {alert.status === 'unread' && (
-                        <button
-                            type="button"
-                            className="ops-btn"
-                            onClick={() => act('read')}
-                            style={ghostBtn()}
-                            title="Mark read"
-                        >
-                            <CheckCircle2 size={15} />
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        className="ops-btn"
+                        onClick={() => act('resolve')}
+                        disabled={busy}
+                        style={{ ...ghostBtn(), color: C.green, borderColor: C.greenTint }}
+                        title="Mark resolved"
+                    >
+                        <CheckCircle2 size={15} />
+                        Resolve
+                    </button>
                     <button
                         type="button"
                         className="ops-btn"
                         onClick={() => act('dismiss')}
+                        disabled={busy}
                         style={ghostBtn()}
                     >
                         Dismiss
@@ -1296,6 +1350,291 @@ function AlertRow({ alert, onChanged }: { alert: Alert; onChanged: () => void })
             )}
         </div>
     );
+}
+
+function RaiseAlertModal({
+    onClose,
+    onRaised,
+}: {
+    onClose: () => void;
+    onRaised: () => void;
+}) {
+    const { data: spaceData } = useApi<{ data: Space[] }>(
+        '/operations/spaces?per_page=200',
+    );
+    const spaces = spaceData?.data ?? [];
+
+    const [title, setTitle] = useState('');
+    const [message, setMessage] = useState('');
+    const [severity, setSeverity] = useState('medium');
+    const [category, setCategory] = useState('maintenance');
+    const [venueIds, setVenueIds] = useState<string[]>([]);
+    const [venueSearch, setVenueSearch] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+
+    const filteredSpaces = spaces.filter(
+        (s) =>
+            !venueSearch ||
+            s.name.toLowerCase().includes(venueSearch.toLowerCase()) ||
+            (s.room_code ?? '').toLowerCase().includes(venueSearch.toLowerCase()),
+    );
+
+    const toggleVenue = (id: string) =>
+        setVenueIds((prev) =>
+            prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+        );
+
+    const submit = async () => {
+        if (!title.trim() || !message.trim()) {
+            setError('Give the alert a title and a description.');
+            return;
+        }
+        setBusy(true);
+        setError('');
+        const res = await postJson('/operations/alerts', {
+            title,
+            message,
+            severity,
+            category,
+            space_ids: venueIds,
+        });
+        setBusy(false);
+        if (res.ok) {
+            onRaised();
+        } else {
+            setError('Could not raise the alert. Please try again.');
+        }
+    };
+
+    return (
+        <div
+            className="ops-overlay"
+            onClick={onClose}
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 60,
+                background: 'rgba(26,26,26,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20,
+            }}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    width: '100%',
+                    maxWidth: 560,
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
+                    background: C.card,
+                    borderRadius: 20,
+                    border: `1px solid ${C.border}`,
+                    boxShadow: '0 40px 90px -34px rgba(26,26,26,0.55)',
+                    padding: '24px 24px 22px',
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
+                    <span
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 38,
+                            height: 38,
+                            borderRadius: 11,
+                            background: C.dangerTint,
+                            color: C.danger,
+                        }}
+                    >
+                        <TriangleAlert size={19} />
+                    </span>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 17, fontWeight: 800 }}>Raise an alert</div>
+                        <div style={{ fontSize: 12.5, color: C.muted }}>
+                            Flag an issue and tag the venues it affects.
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close"
+                        style={{ width: 32, height: 32, borderRadius: 9, border: `1px solid ${C.border}`, background: C.card, color: C.muted, cursor: 'pointer' }}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <FieldLabel>Title</FieldLabel>
+                <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Broken projector in the main hall"
+                    style={alertInput()}
+                />
+
+                <FieldLabel>What's going on?</FieldLabel>
+                <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={3}
+                    placeholder="Describe the issue, where it is, and how urgent it is…"
+                    style={{ ...alertInput(), resize: 'vertical' }}
+                />
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                        <FieldLabel>Severity</FieldLabel>
+                        <select className="ops-select" value={severity} onChange={(e) => setSeverity(e.target.value)} style={{ width: '100%', padding: '10px 12px' }}>
+                            {SEVERITY_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <FieldLabel>Category</FieldLabel>
+                        <select className="ops-select" value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', padding: '10px 12px' }}>
+                            {CATEGORY_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <FieldLabel>
+                    Related venues{venueIds.length ? ` (${venueIds.length})` : ''}
+                </FieldLabel>
+                <input
+                    value={venueSearch}
+                    onChange={(e) => setVenueSearch(e.target.value)}
+                    placeholder="Search venues to tag…"
+                    style={{ ...alertInput(), marginBottom: 8 }}
+                />
+                <div
+                    style={{
+                        maxHeight: 170,
+                        overflowY: 'auto',
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 10,
+                        padding: 6,
+                    }}
+                >
+                    {filteredSpaces.length === 0 ? (
+                        <div style={{ padding: 10, fontSize: 13, color: C.faint }}>No venues found.</div>
+                    ) : (
+                        filteredSpaces.slice(0, 60).map((s) => {
+                            const on = venueIds.includes(s.id);
+                            return (
+                                <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => toggleVenue(s.id)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 9,
+                                        width: '100%',
+                                        textAlign: 'left',
+                                        padding: '7px 9px',
+                                        borderRadius: 8,
+                                        border: 'none',
+                                        background: on ? C.greenTint : 'transparent',
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            width: 17,
+                                            height: 17,
+                                            borderRadius: 5,
+                                            border: `1.5px solid ${on ? C.green : C.border}`,
+                                            background: on ? C.green : C.card,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flex: 'none',
+                                        }}
+                                    >
+                                        {on && <CheckCircle2 size={12} color="#fff" />}
+                                    </span>
+                                    <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {s.name}
+                                    </span>
+                                    <span style={{ fontSize: 11.5, color: C.faint }}>
+                                        fl {s.floor}
+                                    </span>
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+
+                {error && (
+                    <div style={{ color: C.danger, fontSize: 13, marginTop: 12 }}>{error}</div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={submit}
+                    disabled={busy}
+                    style={{
+                        width: '100%',
+                        marginTop: 18,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: '12px',
+                        borderRadius: 11,
+                        border: 'none',
+                        background: C.danger,
+                        color: '#fff',
+                        fontSize: 14.5,
+                        fontWeight: 700,
+                        cursor: busy ? 'not-allowed' : 'pointer',
+                        opacity: busy ? 0.6 : 1,
+                    }}
+                >
+                    {busy ? <RefreshCw size={16} className="ops-spin" /> : <TriangleAlert size={16} />}
+                    {busy ? 'Raising…' : 'Raise alert'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <div
+            style={{
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: '0.03em',
+                textTransform: 'uppercase',
+                color: C.faint,
+                margin: '14px 0 6px',
+            }}
+        >
+            {children}
+        </div>
+    );
+}
+
+function alertInput(): CSSProperties {
+    return {
+        width: '100%',
+        padding: '10px 12px',
+        borderRadius: 10,
+        border: `1px solid ${C.border}`,
+        fontSize: 14,
+        fontFamily: 'inherit',
+        outline: 'none',
+        color: C.ink,
+        background: C.card,
+    };
 }
 
 /* ============================ EVENT REQUESTS ============================ */

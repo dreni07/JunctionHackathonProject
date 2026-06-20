@@ -31,6 +31,7 @@ Route::middleware(['auth', 'verified', 'operational'])
         Route::get('event-requests/{eventRequest}', [EventRequestController::class, 'show'])->name('event-requests.show');
         Route::patch('event-requests/{eventRequest}', [EventRequestController::class, 'update'])->name('event-requests.update');
         Route::post('event-requests/{eventRequest}/convert', [EventRequestController::class, 'convert'])->name('event-requests.convert');
+        Route::post('event-requests/{eventRequest}/reject', [EventRequestController::class, 'reject'])->name('event-requests.reject');
 
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
@@ -76,8 +77,10 @@ Route::middleware(['auth', 'verified', 'operational'])
         Route::post('proposals/{proposal}/reject', [ProposalController::class, 'reject'])->name('proposals.reject');
 
         Route::get('alerts', [AlertController::class, 'index'])->name('alerts.index');
+        Route::post('alerts', [AlertController::class, 'store'])->name('alerts.store');
         Route::patch('alerts/{alert}/read', [AlertController::class, 'markRead'])->name('alerts.read');
         Route::patch('alerts/{alert}/dismiss', [AlertController::class, 'dismiss'])->name('alerts.dismiss');
+        Route::patch('alerts/{alert}/resolve', [AlertController::class, 'resolve'])->name('alerts.resolve');
 
         Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 

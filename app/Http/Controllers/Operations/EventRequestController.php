@@ -64,4 +64,23 @@ class EventRequestController extends OperationsController
             return $this->json($this->events->serialize($event), 201);
         });
     }
+
+    /**
+     * Decline a request, with a reason the organizer is told (and that is
+     * saved for the agent's learning set).
+     */
+    public function reject(Request $request, EventRequest $eventRequest): JsonResponse
+    {
+        $this->authorize(Permissions::REQUESTS_MANAGE);
+
+        return $this->handleOperation(function () use ($request, $eventRequest): JsonResponse {
+            $validated = $request->validate([
+                'reason' => ['required', 'string', 'min:3', 'max:1000'],
+            ]);
+
+            $model = $this->service->reject($request->user(), $eventRequest, $validated['reason']);
+
+            return $this->json($this->service->serialize($model));
+        });
+    }
 }

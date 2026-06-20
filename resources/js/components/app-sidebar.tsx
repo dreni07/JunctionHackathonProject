@@ -1,5 +1,12 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FileUp, FolderGit2, LayoutGrid } from 'lucide-react';
+import {
+    BookOpen,
+    CalendarHeart,
+    FileUp,
+    FolderGit2,
+    LayoutGrid,
+    Sparkles,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -21,6 +28,16 @@ const mainNavItems: NavItem[] = [
         title: 'Dashboard',
         href: dashboard(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Plan an event',
+        href: '/planner',
+        icon: Sparkles,
+    },
+    {
+        title: 'My events',
+        href: '/my-events',
+        icon: CalendarHeart,
     },
     {
         title: 'Pyramid ingest',

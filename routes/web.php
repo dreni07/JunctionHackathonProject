@@ -4,6 +4,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventRequestController;
 use App\Http\Controllers\FacilityController;
+use App\Http\Controllers\MyEventController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OcrController;
 use App\Http\Controllers\OperationalChangePollController;
@@ -47,6 +48,10 @@ Route::post('pyramid/ingest', [PyramidKnowledgeController::class, 'store'])
 Route::get('pyramid/knowledge', [PyramidKnowledgeController::class, 'explore'])
     ->name('pyramid.knowledge.index');
 
+Route::get('my-events', [MyEventController::class, 'index'])->name('my-events.index');
+Route::get('my-events/{event}', [MyEventController::class, 'show'])->name('my-events.show');
+Route::get('my-events/{event}/progress', [MyEventController::class, 'progress'])->name('my-events.progress');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function (Request $request) {
         if ($request->user()?->isOperational()) {
@@ -70,6 +75,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('operational/changes/poll', OperationalChangePollController::class)
         ->middleware('operational')
         ->name('operational.changes.poll');
+
+    // Organization event viewer: their booked events, analytics + live readiness.
 
     // Profile completion (avatar + details).
     Route::get('profile/complete', [UserProfileController::class, 'edit'])->name('profile.complete');

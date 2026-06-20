@@ -41,6 +41,8 @@ const css = `
 .mbt-field{outline:none;font-family:inherit;width:100%;border:1px solid ${C.border};border-radius:10px;padding:10px 12px;font-size:14px;background:${C.card};color:${C.ink}}
 .mbt-field:focus{border-color:${C.green};box-shadow:0 0 0 3px rgba(16,130,91,.12)}
 .mbt-prev:hover{background:${C.cream}}
+.mbt-suggest-item{transition:background .15s ease}
+.mbt-suggest-item:hover{background:${C.cream}}
 `;
 
 type Template = { key: string; name: string; description: string };
@@ -51,9 +53,17 @@ type PrevPrompt = {
     created_at: string | null;
 };
 
+type OrgContact = {
+    id: number;
+    name: string;
+    email: string;
+    organization: string | null;
+};
+
 type PageProps = {
     templates: Template[];
     previousPrompts: PrevPrompt[];
+    organizationContacts: OrgContact[];
 };
 
 function csrf(): string {
@@ -173,6 +183,7 @@ export default function ManageBoringThings(props: PageProps) {
                 <SendEmailModal
                     templates={props.templates}
                     previousPrompts={props.previousPrompts}
+                    organizationContacts={props.organizationContacts}
                     onClose={() => setEmailOpen(false)}
                 />
             )}
@@ -183,10 +194,12 @@ export default function ManageBoringThings(props: PageProps) {
 function SendEmailModal({
     templates,
     previousPrompts,
+    organizationContacts,
     onClose,
 }: {
     templates: Template[];
     previousPrompts: PrevPrompt[];
+    organizationContacts: OrgContact[];
     onClose: () => void;
 }) {
     const [template, setTemplate] = useState(templates[0]?.key ?? '');
@@ -205,6 +218,37 @@ function SendEmailModal({
     const [result, setResult] = useState<{ sent: string[]; failed: string[] } | null>(null);
     const [error, setError] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
+    const recipientWrapRef = useRef<HTMLDivElement>(null);
+    const [suggestOpen, setSuggestOpen] = useState(false);
+
+    const filteredSuggestions = useMemo(() => {
+        const query = emailInput.trim().toLowerCase();
+
+        return organizationContacts
+            .filter((contact) => !recipients.includes(contact.email))
+            .filter((contact) => {
+                if (query === '') {
+                    return true;
+                }
+
+                return (
+                    contact.email.toLowerCase().includes(query) ||
+                    contact.name.toLowerCase().includes(query) ||
+                    (contact.organization?.toLowerCase().includes(query) ??
+                        false)
+                );
+            })
+            .slice(0, 8);
+    }, [organizationContacts, emailInput, recipients]);
+
+    const pickContact = (contact: OrgContact) => {
+        setRecipients((prev) =>
+            Array.from(new Set([...prev, contact.email])),
+        );
+        setEmailInput('');
+        setSuggestOpen(false);
+        inputRef.current?.focus();
+    };
 
     const addEmails = (raw: string) => {
         const parts = raw
@@ -400,17 +444,25 @@ function SendEmailModal({
                         {/* recipients */}
                         <label style={labelStyle}>Recipients</label>
                         <div
+                            ref={recipientWrapRef}
+                            style={{ position: 'relative', marginBottom: 16 }}
+                        >
+                        <div
                             onClick={() => inputRef.current?.focus()}
                             style={{
                                 display: 'flex',
                                 flexWrap: 'wrap',
                                 gap: 6,
                                 padding: 8,
-                                border: `1px solid ${C.border}`,
+                                border: `1px solid ${suggestOpen ? C.green : C.border}`,
                                 borderRadius: 10,
-                                marginBottom: 16,
                                 cursor: 'text',
                                 minHeight: 44,
+                                boxShadow: suggestOpen
+                                    ? '0 0 0 3px rgba(16,130,91,.12)'
+                                    : undefined,
+                                transition:
+                                    'border-color .2s ease, box-shadow .2s ease',
                             }}
                         >
                             {recipients.map((r) => (
@@ -454,11 +506,20 @@ function SendEmailModal({
                                 value={emailInput}
                                 onChange={(e) => setEmailInput(e.target.value)}
                                 onKeyDown={onEmailKey}
-                                onBlur={() => emailInput && addEmails(emailInput)}
+                                onFocus={() => setSuggestOpen(true)}
+                                onBlur={() => {
+                                    window.setTimeout(
+                                        () => setSuggestOpen(false),
+                                        150,
+                                    );
+                                    if (emailInput) {
+                                        addEmails(emailInput);
+                                    }
+                                }}
                                 placeholder={
                                     recipients.length
                                         ? 'Add another…'
-                                        : 'name@email.com, then Enter'
+                                        : 'Type or pick a registered organization'
                                 }
                                 style={{
                                     flex: 1,
@@ -470,6 +531,99 @@ function SendEmailModal({
                                     background: 'transparent',
                                 }}
                             />
+                        </div>
+
+                        {suggestOpen && organizationContacts.length > 0 && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    left: 0,
+                                    right: 0,
+                                    top: 'calc(100% + 6px)',
+                                    background: C.card,
+                                    border: `1px solid ${C.border}`,
+                                    borderRadius: 12,
+                                    boxShadow:
+                                        '0 20px 50px -24px rgba(26,26,26,0.4)',
+                                    zIndex: 6,
+                                    overflow: 'hidden',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        padding: '8px 12px',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        letterSpacing: '0.06em',
+                                        textTransform: 'uppercase',
+                                        color: C.faint,
+                                        borderBottom: `1px solid ${C.borderSoft}`,
+                                    }}
+                                >
+                                    Registered organizations
+                                </div>
+                                {filteredSuggestions.length === 0 ? (
+                                    <div
+                                        style={{
+                                            padding: '12px 14px',
+                                            fontSize: 13,
+                                            color: C.muted,
+                                        }}
+                                    >
+                                        No matching organizations.
+                                    </div>
+                                ) : (
+                                    filteredSuggestions.map((contact) => (
+                                        <button
+                                            key={contact.id}
+                                            type="button"
+                                            className="mbt-suggest-item"
+                                            onMouseDown={(e) =>
+                                                e.preventDefault()
+                                            }
+                                            onClick={() =>
+                                                pickContact(contact)
+                                            }
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'flex-start',
+                                                gap: 2,
+                                                width: '100%',
+                                                padding: '10px 14px',
+                                                border: 'none',
+                                                borderBottom: `1px solid ${C.borderSoft}`,
+                                                background: 'none',
+                                                cursor: 'pointer',
+                                                fontFamily: 'inherit',
+                                                textAlign: 'left',
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    fontSize: 14,
+                                                    fontWeight: 600,
+                                                    color: C.ink,
+                                                }}
+                                            >
+                                                {contact.name}
+                                            </span>
+                                            <span
+                                                style={{
+                                                    fontSize: 12.5,
+                                                    color: C.muted,
+                                                }}
+                                            >
+                                                {contact.email}
+                                                {contact.organization
+                                                    ? ` · ${contact.organization}`
+                                                    : ''}
+                                            </span>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
                         </div>
 
                         {/* prompt */}

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Operations;
 
+use App\Enums\AccountType;
 use App\Mail\GeneratedEmail;
 use App\Models\EmailPrompt;
+use App\Models\User;
 use App\Services\EmailComposerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,6 +42,7 @@ class EmailController extends OperationsController
         return Inertia::render('operations/manage-boring-things', [
             'templates' => self::TEMPLATES,
             'previousPrompts' => $this->previousPrompts($request),
+            'organizationContacts' => $this->organizationContacts(),
         ]);
     }
 
@@ -151,6 +154,27 @@ class EmailController extends OperationsController
                 'prompt' => $p->prompt,
                 'template' => $p->template,
                 'created_at' => $p->created_at?->toIso8601String(),
+            ])
+            ->all();
+    }
+
+    /**
+     * Registered organization accounts that can receive operational emails.
+     *
+     * @return list<array{id: int, name: string, email: string, organization: string|null}>
+     */
+    private function organizationContacts(): array
+    {
+        return User::query()
+            ->where('account_type', AccountType::Organization)
+            ->with('organization:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'organization_id'])
+            ->map(fn (User $user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'organization' => $user->organization?->name,
             ])
             ->all();
     }
