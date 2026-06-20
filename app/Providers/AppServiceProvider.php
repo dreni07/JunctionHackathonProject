@@ -16,6 +16,7 @@ use App\Services\EmbeddingService;
 use App\Services\FileSearchService;
 use App\Services\GroqService;
 use App\Services\OcrService;
+use App\Services\OpenAiChatService;
 use App\Services\PdfTextExtractor;
 use App\Services\QdrantService;
 use App\Services\SpeechToTextService;
@@ -100,6 +101,14 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(FileSearchService::class, function (): FileSearchService {
             return new FileSearchService(rootPath: base_path('docs'));
+        });
+
+        $this->app->singleton(OpenAiChatService::class, function (): OpenAiChatService {
+            return new OpenAiChatService(
+                apiKey: (string) config('services.openai.api_key'),
+                baseUrl: (string) config('services.openai.base_url'),
+                model: (string) config('services.openai.model'),
+            );
         });
 
         $this->app->singleton(SpeechToTextService::class, function (): SpeechToTextService {

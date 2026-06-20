@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Http\Controllers\Auth\LegacyEmailVerificationLinkController;
+use App\Services\EmailVerificationCodeService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -13,6 +15,7 @@ use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
+use Laravel\Fortify\Http\Controllers\VerifyEmailController;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -21,7 +24,7 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(VerifyEmailController::class, LegacyEmailVerificationLinkController::class);
     }
 
     /**
@@ -66,15 +69,27 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
-        Fortify::verifyEmailView(fn (Request $request) => Inertia::render('auth/verify-email', [
-            'status' => $request->session()->get('status'),
-            // Seconds the user must wait before another email can be sent
-            // (60 right after a send, 0 once the window has elapsed). The key
-            // mirrors how the throttle middleware stores a named limiter.
-            'resendCooldown' => RateLimiter::availableIn(
-                md5('verification'.($request->user() !== null ? (string) $request->user()->id : $request->ip())),
-            ),
-        ]));
+        Fortify::verifyEmailView(function (Request $request) {
+            $user = $request->user();
+
+            if ($user !== null && ! $user->hasVerifiedEmail()) {
+                $codes = app(EmailVerificationCodeService::class);
+
+                if (! $codes->hasActiveCode($user)) {
+                    $user->sendEmailVerificationNotification();
+                }
+            }
+
+            return Inertia::render('auth/verify-email', [
+                'status' => $request->session()->get('status'),
+                // Seconds the user must wait before another email can be sent
+                // (60 right after a send, 0 once the window has elapsed). The key
+                // mirrors how the throttle middleware stores a named limiter.
+                'resendCooldown' => RateLimiter::availableIn(
+                    md5('verification'.($request->user() !== null ? (string) $request->user()->id : $request->ip())),
+                ),
+            ]);
+        });
 
         Fortify::registerView(fn () => Inertia::render('auth/register', [
             'passwordRules' => Password::defaults()->toPasswordRulesString(),

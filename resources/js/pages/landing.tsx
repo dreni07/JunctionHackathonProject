@@ -1,9 +1,8 @@
 import { Head } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 
 type Props = {
     heroOverlay?: 'soft' | 'medium' | 'strong';
-    stepStyle?: 'cards' | 'minimal';
 };
 
 const HERO_IMAGE = '/assets/pyramid.webp';
@@ -11,19 +10,25 @@ const CARD_IMAGE = '/assets/pyramid-card.webp';
 
 const steps = [
     {
-        num: '1',
+        num: '01',
+        tag: 'Profile',
         title: 'List your organization',
         body: 'Create a profile for your company or organization in minutes — your team, your mission, the kind of events you run.',
+        accent: '#10825B',
     },
     {
-        num: '2',
+        num: '02',
+        tag: 'Intelligence',
         title: 'Get bid recommendations',
         body: 'Our agents suggest strong bids drawn from applications that have actually been approved before — no more guesswork.',
+        accent: '#2A6F44',
     },
     {
-        num: '3',
+        num: '03',
+        tag: 'Confidence',
         title: 'Submit with a rating',
         body: 'Before you apply, agents score how likely your bid is to pass with the tenants, so you only send applications worth sending.',
+        accent: '#8A6D1C',
     },
 ];
 
@@ -48,10 +53,25 @@ body{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;ba
 
 /* Hover behaviours ported from style-hover */
 .nav-link:hover{color:#fff}
-.step-card:hover{transform:translateY(-6px);box-shadow:0 18px 44px -20px rgba(26,26,26,0.22);border-color:#D8E2DC}
+.step-panel:hover{transform:translateY(-10px);box-shadow:0 32px 64px -28px rgba(16,130,91,0.28)}
+.step-panel:hover .step-panel-arrow{transform:translateX(5px);opacity:1}
 .step-row:hover{padding-left:14px}
 .footer-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px -12px rgba(0,0,0,0.55);background:#fff}
 .footer-link:hover{color:#fff}
+
+/* How-it-works journey */
+.steps-journey{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(18px,2.5vw,28px);position:relative;align-items:stretch}
+.steps-journey::before{content:"";position:absolute;top:58px;left:12%;right:12%;height:2px;background:linear-gradient(90deg,transparent 0%,#C9C3B4 18%,#10825B 50%,#C9C3B4 82%,transparent 100%);opacity:.55;pointer-events:none;z-index:0}
+.step-panel{position:relative;display:flex;flex-direction:column;min-height:100%;padding:38px 30px 34px;border-radius:26px;background:linear-gradient(165deg,#fff 0%,#F9F8F4 55%,#F2F0E8 100%);border:1px solid rgba(255,255,255,0.95);box-shadow:0 10px 40px -22px rgba(26,26,26,0.18),inset 0 1px 0 rgba(255,255,255,0.85);overflow:hidden;transition:transform .45s cubic-bezier(.2,.8,.2,1),box-shadow .45s ease;z-index:1}
+.step-panel-accent{position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--step-accent,#10825B),color-mix(in srgb,var(--step-accent,#10825B) 40%,transparent))}
+.step-panel-num{font-size:clamp(52px,7vw,68px);font-weight:800;line-height:1;letter-spacing:-0.05em;color:color-mix(in srgb,var(--step-accent,#10825B) 14%,transparent);margin-bottom:18px}
+.step-panel-tag{display:inline-flex;align-items:center;width:fit-content;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--step-accent,#10825B);background:color-mix(in srgb,var(--step-accent,#10825B) 10%,#fff);border:1px solid color-mix(in srgb,var(--step-accent,#10825B) 18%,transparent);margin-bottom:16px}
+.step-panel-title{font-size:clamp(20px,2.2vw,24px);font-weight:800;letter-spacing:-0.02em;color:#1A1A1A;margin-bottom:12px;line-height:1.15}
+.step-panel-body{font-size:15.5px;line-height:1.65;color:#5C5A54;text-wrap:pretty;flex:1}
+.step-panel-foot{display:flex;align-items:center;justify-content:space-between;margin-top:26px;padding-top:18px;border-top:1px solid rgba(201,195,180,0.55)}
+.step-panel-index{font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#9A958A}
+.step-panel-arrow{font-size:18px;line-height:1;color:var(--step-accent,#10825B);opacity:.55;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .35s ease}
+@media(max-width:960px){.steps-journey{grid-template-columns:1fr;max-width:520px;margin:0 auto}.steps-journey::before{display:none}}
 
 /* Scroll reveal (progressive enhancement: hidden only once JS confirms it runs) */
 html.js-reveal .reveal{opacity:0;transform:translateY(32px)}
@@ -61,7 +81,6 @@ html.js-reveal .reveal.is-visible{opacity:1;transform:none}
 
 export default function Landing({
     heroOverlay = 'medium',
-    stepStyle = 'cards',
 }: Props) {
     useEffect(() => {
         if (!('IntersectionObserver' in window)) {
@@ -311,189 +330,144 @@ export default function Landing({
                 <section
                     id="how"
                     style={{
+                        position: 'relative',
                         padding: 'clamp(80px,12vh,140px) clamp(24px,6vw,80px)',
-                        background: '#F4F3EE',
+                        background:
+                            'linear-gradient(180deg, #F4F3EE 0%, #EDEAE2 100%)',
+                        overflow: 'hidden',
                     }}
                 >
-                    <div style={{ maxWidth: '1140px', margin: '0 auto' }}>
+                    <div
+                        aria-hidden
+                        style={{
+                            position: 'absolute',
+                            top: '-120px',
+                            right: '-80px',
+                            width: '420px',
+                            height: '420px',
+                            borderRadius: '50%',
+                            background:
+                                'radial-gradient(circle, rgba(16,130,91,0.08) 0%, transparent 70%)',
+                            pointerEvents: 'none',
+                        }}
+                    />
+                    <div
+                        aria-hidden
+                        style={{
+                            position: 'absolute',
+                            bottom: '-140px',
+                            left: '-100px',
+                            width: '360px',
+                            height: '360px',
+                            borderRadius: '50%',
+                            background:
+                                'radial-gradient(circle, rgba(138,109,28,0.07) 0%, transparent 70%)',
+                            pointerEvents: 'none',
+                        }}
+                    />
+
+                    <div
+                        style={{
+                            position: 'relative',
+                            maxWidth: '1140px',
+                            margin: '0 auto',
+                        }}
+                    >
                         <div
                             style={{
-                                textAlign: 'center',
-                                maxWidth: '640px',
-                                margin: '0 auto clamp(48px,7vh,76px)',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                alignItems: 'flex-end',
+                                justifyContent: 'space-between',
+                                gap: '24px',
+                                marginBottom: 'clamp(48px,7vh,76px)',
                             }}
                         >
-                            <span
-                                style={{
-                                    display: 'inline-block',
-                                    fontSize: '13px',
-                                    fontWeight: 600,
-                                    letterSpacing: '0.16em',
-                                    textTransform: 'uppercase',
-                                    color: '#10825B',
-                                    marginBottom: '16px',
-                                }}
-                            >
-                                How it works
-                            </span>
-                            <h2
-                                style={{
-                                    fontSize: 'clamp(28px,3.6vw,46px)',
-                                    lineHeight: 1.08,
-                                    fontWeight: 800,
-                                    letterSpacing: '-0.02em',
-                                    color: '#1A1A1A',
-                                    marginBottom: '16px',
-                                    textWrap: 'balance',
-                                }}
-                            >
-                                Three steps, instead of a long, uncertain
-                                process
-                            </h2>
+                            <div style={{ maxWidth: '620px' }}>
+                                <span
+                                    style={{
+                                        display: 'inline-block',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.16em',
+                                        textTransform: 'uppercase',
+                                        color: '#10825B',
+                                        marginBottom: '16px',
+                                    }}
+                                >
+                                    How it works
+                                </span>
+                                <h2
+                                    style={{
+                                        fontSize: 'clamp(30px,3.8vw,48px)',
+                                        lineHeight: 1.06,
+                                        fontWeight: 800,
+                                        letterSpacing: '-0.025em',
+                                        color: '#1A1A1A',
+                                        marginBottom: '18px',
+                                        textWrap: 'balance',
+                                    }}
+                                >
+                                    Three moves.
+                                    <br />
+                                    <span style={{ color: '#10825B' }}>
+                                        One path to approval.
+                                    </span>
+                                </h2>
+                            </div>
                             <p
                                 style={{
-                                    fontSize: '17px',
-                                    lineHeight: 1.6,
+                                    fontSize: '16px',
+                                    lineHeight: 1.65,
                                     color: '#6E6E6E',
                                     textWrap: 'pretty',
+                                    maxWidth: '34ch',
                                 }}
                             >
-                                No more guessing at floor plans, square meters
-                                and what the tenants want. We turn the
-                                application into something you can actually win.
+                                Floor plans, tenant fit, bid quality — sorted
+                                before you hit submit. No more long back-and-forth.
                             </p>
                         </div>
 
-                        {stepStyle === 'cards' && (
-                            <div
-                                style={{
-                                    display: 'grid',
-                                    gridTemplateColumns:
-                                        'repeat(auto-fit,minmax(280px,1fr))',
-                                    gap: '24px',
-                                }}
-                            >
-                                {steps.map((step, index) => (
-                                    <div
-                                        key={step.num}
-                                        className="reveal step-card"
-                                        data-reveal={index}
-                                        style={{
-                                            position: 'relative',
-                                            background: '#fff',
-                                            border: '1px solid #EAE7DC',
-                                            borderRadius: '18px',
-                                            padding: '34px 30px 36px',
-                                            transition:
-                                                'transform .5s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease,border-color .35s ease,opacity .6s ease',
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                width: '46px',
-                                                height: '46px',
-                                                borderRadius: '12px',
-                                                background: '#D8E2DC',
-                                                color: '#10825B',
-                                                fontSize: '18px',
-                                                fontWeight: 800,
-                                                marginBottom: '22px',
-                                            }}
-                                        >
-                                            {step.num}
-                                        </div>
-                                        <h3
-                                            style={{
-                                                fontSize: '21px',
-                                                fontWeight: 700,
-                                                letterSpacing: '-0.01em',
-                                                color: '#1A1A1A',
-                                                marginBottom: '11px',
-                                            }}
-                                        >
-                                            {step.title}
-                                        </h3>
-                                        <p
-                                            style={{
-                                                fontSize: '15.5px',
-                                                lineHeight: 1.62,
-                                                color: '#6E6E6E',
-                                                textWrap: 'pretty',
-                                            }}
-                                        >
-                                            {step.body}
-                                        </p>
+                        <div className="steps-journey">
+                            {steps.map((step, index) => (
+                                <article
+                                    key={step.num}
+                                    className="reveal step-panel"
+                                    data-reveal={index}
+                                    style={
+                                        {
+                                            '--step-accent': step.accent,
+                                        } as CSSProperties
+                                    }
+                                >
+                                    <div className="step-panel-accent" />
+                                    <div className="step-panel-num">
+                                        {step.num}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                        {stepStyle === 'minimal' && (
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    maxWidth: '760px',
-                                    margin: '0 auto',
-                                }}
-                            >
-                                {steps.map((step, index) => (
-                                    <div
-                                        key={step.num}
-                                        className="reveal step-row"
-                                        data-reveal={index}
-                                        style={{
-                                            display: 'flex',
-                                            gap: '26px',
-                                            alignItems: 'flex-start',
-                                            padding: '30px 4px',
-                                            borderTop: '1px solid #E0DCD3',
-                                            transition:
-                                                'padding-left .3s cubic-bezier(.2,.8,.2,1),opacity .7s ease,transform .75s cubic-bezier(.2,.8,.2,1)',
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                flex: 'none',
-                                                fontSize:
-                                                    'clamp(34px,4vw,52px)',
-                                                lineHeight: 1,
-                                                fontWeight: 800,
-                                                letterSpacing: '-0.02em',
-                                                color: '#D8E2DC',
-                                            }}
-                                        >
-                                            {step.num}
+                                    <span className="step-panel-tag">
+                                        {step.tag}
+                                    </span>
+                                    <h3 className="step-panel-title">
+                                        {step.title}
+                                    </h3>
+                                    <p className="step-panel-body">
+                                        {step.body}
+                                    </p>
+                                    <div className="step-panel-foot">
+                                        <span className="step-panel-index">
+                                            Step {step.num}
                                         </span>
-                                        <div style={{ paddingTop: '4px' }}>
-                                            <h3
-                                                style={{
-                                                    fontSize: '21px',
-                                                    fontWeight: 700,
-                                                    letterSpacing: '-0.01em',
-                                                    color: '#1A1A1A',
-                                                    marginBottom: '9px',
-                                                }}
-                                            >
-                                                {step.title}
-                                            </h3>
-                                            <p
-                                                style={{
-                                                    fontSize: '16px',
-                                                    lineHeight: 1.62,
-                                                    color: '#6E6E6E',
-                                                    textWrap: 'pretty',
-                                                }}
-                                            >
-                                                {step.body}
-                                            </p>
-                                        </div>
+                                        <span
+                                            className="step-panel-arrow"
+                                            aria-hidden
+                                        >
+                                            →
+                                        </span>
                                     </div>
-                                ))}
-                            </div>
-                        )}
+                                </article>
+                            ))}
+                        </div>
                     </div>
                 </section>
 

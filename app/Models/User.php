@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\AccountType;
 use App\Enums\RoleName;
+use App\Notifications\VerifyEmailWithCode;
+use App\Services\EmailVerificationCodeService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -184,6 +186,22 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
+     * Replace the user's roles with the given set.
+     */
+    public function syncRoles(RoleName|string ...$roles): void
+    {
+        $names = array_map(
+            fn (RoleName|string $role): string => $role instanceof RoleName ? $role->value : $role,
+            $roles,
+        );
+
+        $ids = Role::query()->whereIn('name', $names)->pluck('id');
+
+        $this->roles()->sync($ids);
+        $this->unsetRelation('roles');
+    }
+
+    /**
      * Whether the user has the given permission through any of their roles.
      * This is what backs every `can:` gate check on routes.
      */
@@ -206,5 +224,15 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             ->flatMap(fn (Role $role): iterable => $role->permissions->pluck('name'))
             ->unique()
             ->values();
+    }
+
+    /**
+     * Send a one-time verification code instead of a signed email link.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $code = app(EmailVerificationCodeService::class)->issue($this);
+
+        $this->notify(new VerifyEmailWithCode($code));
     }
 }

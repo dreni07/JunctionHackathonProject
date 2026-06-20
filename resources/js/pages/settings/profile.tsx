@@ -96,14 +96,14 @@ export default function Profile({
                                                 className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
                                             >
                                                 Click here to re-send the
-                                                verification email.
+                                                verification code.
                                             </Link>
                                         </p>
 
                                         {status ===
                                             'verification-link-sent' && (
                                             <div className="mt-2 text-sm font-medium text-green-600">
-                                                A new verification link has been
+                                                A new verification code has been
                                                 sent to your email address.
                                             </div>
                                         )}
