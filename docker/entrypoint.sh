@@ -54,6 +54,9 @@ until php -r '
     sleep 3
 done
 
-php artisan migrate --force
+if ! php artisan migrate --force; then
+    echo 'WARNING: migrations failed — starting web server anyway so the app stays reachable.'
+    echo 'Run: docker compose exec app php artisan migrate --force'
+fi
 
 exec php artisan serve --host=0.0.0.0 --port=8000

@@ -19,16 +19,16 @@ beforeEach(function (): void {
 
 function operationsUser(): User
 {
-    $user = User::factory()->create();
-    $user->assignRole(RoleName::Operations);
+    $user = User::factory()->operational()->create();
+    $user->syncRoles(RoleName::Operations);
 
     return $user;
 }
 
 function organizerUser(): User
 {
-    $user = User::factory()->create();
-    $user->assignRole(RoleName::Organizer);
+    $user = User::factory()->organization()->create();
+    $user->syncRoles(RoleName::Organizer);
 
     return $user;
 }
@@ -82,17 +82,12 @@ test('operations user can convert an event request into an event', function (): 
         ->and($request->fresh()->event_id)->not->toBeNull();
 });
 
-test('organizer only sees their own event requests', function (): void {
+test('organization accounts cannot access operations endpoints', function (): void {
     $organizer = organizerUser();
-    $other = User::factory()->create();
-
-    EventRequest::factory()->create(['submitted_by' => $organizer->id]);
-    EventRequest::factory()->create(['submitted_by' => $other->id]);
 
     $this->actingAs($organizer)
-        ->getJson(route('operations.event-requests.index'))
-        ->assertOk()
-        ->assertJsonPath('meta.total', 1);
+        ->getJson(route('operations.dashboard'))
+        ->assertForbidden();
 });
 
 test('operations user can manage events tasks and spaces', function (): void {
@@ -108,6 +103,7 @@ test('operations user can manage events tasks and spaces', function (): void {
         'floor' => 1,
         'capacity' => 80,
         'type' => SpaceType::Hall,
+        'tenant_id' => $user->tenant_id,
     ]);
 
     $this->actingAs($user)
@@ -143,9 +139,9 @@ test('operations user can manage events tasks and spaces', function (): void {
         ->assertJsonPath('meta.total', 1);
 });
 
-test('management user can approve a sent proposal', function (): void {
-    $management = User::factory()->create();
-    $management->assignRole(RoleName::Management);
+test('operational management user can approve a sent proposal', function (): void {
+    $management = User::factory()->operational()->create();
+    $management->syncRoles(RoleName::Management);
 
     $operations = operationsUser();
     $request = EventRequest::factory()->create(['status' => EventRequestStatus::ProposalDraft]);
@@ -171,13 +167,12 @@ test('management user can approve a sent proposal', function (): void {
         ->assertJsonPath('data.status', 'accepted');
 });
 
-test('organization profile can be viewed by its member', function (): void {
+test('organization accounts cannot view operations organization profiles', function (): void {
     $organization = Organization::query()->create(['name' => 'Acme Events']);
     $user = organizerUser();
     $user->update(['organization_id' => $organization->id]);
 
     $this->actingAs($user)
         ->getJson(route('operations.organizations.show', $organization))
-        ->assertOk()
-        ->assertJsonPath('data.name', 'Acme Events');
+        ->assertForbidden();
 });

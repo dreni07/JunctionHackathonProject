@@ -6,17 +6,22 @@ use App\Http\Controllers\Operations\AssetController;
 use App\Http\Controllers\Operations\BlackoutWindowController;
 use App\Http\Controllers\Operations\ConflictController;
 use App\Http\Controllers\Operations\DashboardController;
+use App\Http\Controllers\Operations\EmailController;
 use App\Http\Controllers\Operations\EventContactController;
 use App\Http\Controllers\Operations\EventController;
 use App\Http\Controllers\Operations\EventRequestController;
+use App\Http\Controllers\Operations\EventTaskPlanningController;
+use App\Http\Controllers\Operations\MapCalibrationController;
 use App\Http\Controllers\Operations\OrganizationController;
 use App\Http\Controllers\Operations\ProposalController;
 use App\Http\Controllers\Operations\ReservationController;
 use App\Http\Controllers\Operations\SpaceController;
 use App\Http\Controllers\Operations\TaskController;
+use App\Http\Controllers\Operations\TenantFinanceController;
+use App\Http\Controllers\Operations\TenantWorkerController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])
+Route::middleware(['auth', 'verified', 'operational'])
     ->prefix('operations')
     ->name('operations.')
     ->group(function (): void {
@@ -31,12 +36,25 @@ Route::middleware(['auth', 'verified'])
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
         Route::patch('events/{event}', [EventController::class, 'update'])->name('events.update');
 
+        // AI splits an approved event into tasks and assigns them by role.
+        Route::post('events/{event}/plan-tasks', [EventTaskPlanningController::class, 'store'])->name('events.plan-tasks');
+
         Route::get('events/{event}/reservations', [ReservationController::class, 'index'])->name('events.reservations.index');
         Route::post('events/{event}/reservations', [ReservationController::class, 'store'])->name('events.reservations.store');
         Route::delete('reservations/{reservation}', [ReservationController::class, 'destroy'])->name('reservations.destroy');
 
         Route::get('spaces', [SpaceController::class, 'index'])->name('spaces.index');
         Route::get('spaces/{space}', [SpaceController::class, 'show'])->name('spaces.show');
+
+        // Pin venues onto the Pyramid floor plan (one-time calibration).
+        // "Manage boring things": AI-assisted bulk emails.
+        Route::get('manage-boring-things', [EmailController::class, 'index'])->name('manage-boring-things');
+        Route::post('emails/generate', [EmailController::class, 'generate'])->name('emails.generate');
+        Route::post('emails/send', [EmailController::class, 'send'])->name('emails.send');
+
+        Route::get('map-calibration', [MapCalibrationController::class, 'index'])->name('map-calibration');
+        Route::post('map-calibration/plan', [MapCalibrationController::class, 'uploadPlan'])->name('map-calibration.plan');
+        Route::patch('spaces/{space}/geometry', [MapCalibrationController::class, 'update'])->name('spaces.geometry.update');
 
         Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
         Route::post('tasks', [TaskController::class, 'store'])->name('tasks.store');
@@ -81,4 +99,14 @@ Route::middleware(['auth', 'verified'])
 
         Route::get('organizations/{organization}', [OrganizationController::class, 'show'])->name('organizations.show');
         Route::patch('organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
+
+        Route::middleware('tenant.manager')->group(function (): void {
+            Route::get('team', [TenantWorkerController::class, 'index'])->name('team.index');
+            Route::post('team', [TenantWorkerController::class, 'store'])->name('team.store');
+
+            Route::get('finance', [TenantFinanceController::class, 'index'])->name('finance.index');
+            Route::patch('finance/profile', [TenantFinanceController::class, 'updateProfile'])->name('finance.profile.update');
+            Route::post('finance/payments', [TenantFinanceController::class, 'storePayment'])->name('finance.payments.store');
+            Route::post('finance/expenses', [TenantFinanceController::class, 'storeExpense'])->name('finance.expenses.store');
+        });
     });

@@ -6,6 +6,7 @@ namespace App\Agent\Tools;
 
 use App\Agent\Tool;
 use App\Enums\EventType;
+use App\Models\Space;
 use App\Services\EventRequestService;
 use App\Services\PricingService;
 use App\Services\VenueOrchestrator;
@@ -24,6 +25,17 @@ class ApiTool implements Tool
 
     /** @var array<string, mixed>|null */
     private ?array $submitted = null;
+
+    /**
+     * The most recent fully-normalized event details, so a revision can change
+     * just one thing without the agent re-sending everything.
+     *
+     * @var array<string, mixed>|null
+     */
+    private ?array $lastData = null;
+
+    /** The price the organizer has agreed to, once negotiated. */
+    private ?float $agreedPrice = null;
 
     public function __construct(
         private readonly EventRequestService $eventRequests,
@@ -97,16 +109,46 @@ class ApiTool implements Tool
 
         return match ($action) {
             'present_event_request' => $this->present($normalized['data']),
-            'create_event_request' => $this->submit($details, $agreedPrice),
+            'create_event_request' => $this->submit($details, $agreedPrice ?? $this->agreedPrice),
             default => 'Unknown action. Use present_event_request or create_event_request.',
         };
     }
 
     /**
+     * Apply a change the organizer asked for after seeing the proposal — any
+     * field and/or a newly agreed price — and re-show the updated proposal.
+     * Only the changed fields need to be passed; the rest carry over.
+     *
+     * @param  array<string, mixed>  $details
+     */
+    public function revise(array $details, ?float $agreedPrice): string
+    {
+        $merged = array_merge($this->lastData ?? [], array_filter(
+            $details,
+            fn (mixed $value): bool => $value !== null && $value !== '',
+        ));
+
+        $normalized = $this->eventRequests->normalize($merged);
+
+        if (! $normalized['ok']) {
+            return 'Cannot revise yet — still missing: '.implode('; ', $normalized['errors'])
+                .'. Present the event request first, then revise it.';
+        }
+
+        return $this->present($normalized['data'], $agreedPrice ?? $this->agreedPrice);
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
-    private function present(array $data): string
+    private function present(array $data, ?float $agreedPrice = null): string
     {
+        $this->lastData = $data;
+
+        if ($agreedPrice !== null && $agreedPrice > 0) {
+            $this->agreedPrice = round($agreedPrice, 2);
+        }
+
         // Hand off to the matching + scheduling agents to pick a venue.
         $recommendation = $this->venues->recommend(
             (string) $data['event_type'],
@@ -155,19 +197,37 @@ class ApiTool implements Tool
             $duration,
         );
 
+        // If the organizer agreed a different price, show THAT on screen (and
+        // keep the original as the suggested figure for context).
+        $agreed = false;
+
+        if ($pricing !== null && $this->agreedPrice !== null && $this->agreedPrice > 0) {
+            $area = (int) ($venue['area_sqm'] ?? 0);
+            $pricing['suggested_total'] = $pricing['total'];
+            $pricing['total'] = $this->agreedPrice;
+            $pricing['price_per_sqm'] = $area > 0 ? round($this->agreedPrice / $area, 2) : $pricing['price_per_sqm'];
+            $pricing['agreed'] = true;
+            $agreed = true;
+        }
+
+        // Attach the venue's position on the floor plan so the organizer's
+        // screen can light up exactly where in the Pyramid the venue sits.
+        $venue = $this->withMapLocation($venue);
+
         $this->review = [...$data, 'venue' => $venue, 'pricing' => $pricing, 'reason' => 'ok'];
 
         $priceLine = $pricing !== null
-            ? ' The suggested price is about €'.number_format($pricing['total'], 0)
-                .' (€'.number_format($pricing['price_per_sqm'], 2).' per square metre), based on similar past events.'
+            ? ($agreed
+                ? ' The agreed price of €'.number_format($pricing['total'], 0).' is now shown.'
+                : ' The suggested price is about €'.number_format($pricing['total'], 0)
+                    .' (€'.number_format($pricing['price_per_sqm'], 2).' per square metre), based on similar past events.')
             : '';
 
         return 'Reasoning: this venue holds '.($venue['capacity'] ?? '?').' and the event expects '
-            .$data['attendees'].' people, so it fits (match confidence '.$venue['confidence'].'%). The event '
-            .'summary, the recommended venue ('.$venue['name'].') and the suggested price are now on the '
-            .'user\'s screen.'.$priceLine.' Tell them which venue you recommend and why it suits their event, '
-            .'give the suggested price, then ask them to confirm out loud (e.g. "send the event request") '
-            .'before you submit it.';
+            .$data['attendees'].' people, so it fits (match confidence '.$venue['confidence'].'%). The updated event '
+            .'summary, the recommended venue ('.$venue['name'].') and the price are now on the '
+            .'user\'s screen.'.$priceLine.' Warmly read back what changed, then ask them to confirm out loud '
+            .'(e.g. "send the event request") before you submit it.';
     }
 
     /**
@@ -193,6 +253,39 @@ class ApiTool implements Tool
 
         return 'The event request was created and saved (id '.$eventRequest->id.', status submitted).'
             .$priceLine.' Tell the user it is done'.($agreed !== null ? ' and confirm the agreed price.' : '.');
+    }
+
+    /**
+     * Enrich a matched venue with its floor-plan position (box_ref + the
+     * normalized {x, y} captured during map calibration), so the frontend can
+     * highlight the venue on the Pyramid plan. Resilient to whichever shape the
+     * matching agent returned the venue in.
+     *
+     * @param  array<string, mixed>  $venue
+     * @return array<string, mixed>
+     */
+    private function withMapLocation(array $venue): array
+    {
+        $space = null;
+
+        if (! empty($venue['space_id'])) {
+            $space = Space::find($venue['space_id']);
+        }
+
+        if ($space === null && ! empty($venue['id'])) {
+            $space = Space::find($venue['id']);
+        }
+
+        if ($space === null && ! empty($venue['room_code'])) {
+            $space = Space::query()->where('room_code', $venue['room_code'])->first();
+        }
+
+        return [
+            ...$venue,
+            'space_id' => $space?->id ?? ($venue['space_id'] ?? null),
+            'box_ref' => $space?->box_ref ?? ($venue['box_ref'] ?? null),
+            'location_geometry' => $space?->location_geometry,
+        ];
     }
 
     /**

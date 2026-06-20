@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\SpaceType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $room_code
  * @property string|null $box_ref
  * @property string|null $zone_class
+ * @property int|null $tenant_id
  * @property string $name
  * @property int $floor
  * @property int $capacity
@@ -34,6 +36,7 @@ class Space extends Model
         'room_code',
         'box_ref',
         'zone_class',
+        'tenant_id',
         'name',
         'floor',
         'capacity',
@@ -58,6 +61,16 @@ class Space extends Model
             'features' => 'array',
             'location_geometry' => 'array',
         ];
+    }
+
+    /**
+     * The Pyramid branch that operates this venue.
+     *
+     * @return BelongsTo<Tenant, $this>
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 
     /**

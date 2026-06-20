@@ -24,6 +24,10 @@ class SpaceCatalogService
 
         $query = Space::query()->orderBy('zone_class')->orderBy('name');
 
+        if ($user->isOperational() && $user->tenant_id !== null) {
+            $query->where('tenant_id', $user->tenant_id);
+        }
+
         if (! empty($filters['zone'])) {
             $query->where('zone_class', $filters['zone']);
         }
@@ -40,6 +44,10 @@ class SpaceCatalogService
     {
         if (! $user->hasPermissionTo(Permissions::SPACES_VIEW)) {
             throw new InvalidArgumentException('You are not allowed to view spaces.');
+        }
+
+        if ($user->isOperational() && $user->tenant_id !== null && $space->tenant_id !== $user->tenant_id) {
+            throw new InvalidArgumentException('You are not allowed to view this space.');
         }
 
         return $space->loadCount('reservations');

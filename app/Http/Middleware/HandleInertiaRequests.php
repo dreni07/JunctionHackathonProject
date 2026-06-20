@@ -46,6 +46,8 @@ class HandleInertiaRequests extends Middleware
                 // shows/hides on permissions, never on role names.
                 'permissions' => $user?->permissionNames()->all() ?? [],
                 'roles' => $user?->roles->pluck('name')->all() ?? [],
+                'unreadNotifications' => $user?->unreadNotifications()->count() ?? 0,
+                'profileCompletion' => $user ? $user->profileCompletionPercent() : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

@@ -10,6 +10,7 @@ use App\Models\FacilityProfile;
 use App\Models\InfrastructureSpec;
 use App\Models\OccupancyStandard;
 use App\Models\Space;
+use App\Models\Tenant;
 use App\Models\ZoneOperatingRule;
 use Illuminate\Database\Seeder;
 
@@ -84,6 +85,7 @@ class PyramidFacilitySeeder extends Seeder
                 [
                     'box_ref' => $box,
                     'zone_class' => $zone,
+                    'tenant_id' => Tenant::resolveSpaceTenantId($zone, $type),
                     'name' => $type.' ('.$box.')',
                     'floor' => $floor,
                     'capacity' => $cap,

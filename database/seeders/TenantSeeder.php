@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\AccountType;
 use App\Enums\RoleName;
+use App\Enums\TenantWorkerRole;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -22,17 +23,17 @@ class TenantSeeder extends Seeder
             [
                 'title' => 'TUMO TIRANA',
                 'description' => 'Free-of-charge after-school program where teens design and build with technology.',
-                'roles' => ['Learning Coach', 'Workshop Leader', 'Studio Manager', 'Front Desk'],
+                'roles' => ['Manager', 'Learning Coach', 'Workshop Leader', 'Studio Manager', 'Front Desk'],
             ],
             [
                 'title' => 'ICT ECOSYSTEM',
                 'description' => "The technology hub powering the Pyramid's digital products and infrastructure.",
-                'roles' => ['Software Engineer', 'DevOps Engineer', 'Product Manager', 'Data Analyst'],
+                'roles' => ['Manager', 'Software Engineer', 'DevOps Engineer', 'Product Manager', 'Data Analyst'],
             ],
             [
                 'title' => 'ARTS',
                 'description' => 'Exhibitions, performances, and cultural programming across the Pyramid.',
-                'roles' => ['Curator', 'Gallery Manager', 'Event Producer', 'Technician'],
+                'roles' => ['Manager', 'Curator', 'Gallery Manager', 'Event Producer', 'Technician'],
             ],
         ];
 
@@ -50,7 +51,8 @@ class TenantSeeder extends Seeder
                     'password' => Hash::make('password'),
                     'account_type' => AccountType::Operational->value,
                     'tenant_id' => $tenant->id,
-                    'worker_role' => $data['roles'][0],
+                    'worker_role' => collect($data['roles'])
+                        ->first(fn (string $role): bool => $role !== TenantWorkerRole::Manager->value),
                     'email_verified_at' => now(),
                 ],
             );

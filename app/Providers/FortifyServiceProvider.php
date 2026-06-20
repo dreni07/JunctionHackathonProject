@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Controllers\Auth\LegacyEmailVerificationLinkController;
+use App\Http\Responses\LoginResponse;
+use App\Http\Responses\RegisterResponse;
 use App\Services\EmailVerificationCodeService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -13,6 +15,8 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 use Laravel\Fortify\Http\Controllers\VerifyEmailController;
@@ -25,6 +29,8 @@ class FortifyServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(VerifyEmailController::class, LegacyEmailVerificationLinkController::class);
+        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
+        $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
     }
 
     /**
@@ -51,9 +57,6 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureViews(): void
     {
-        // Plain credential login. Fortify resolves the account by email and
-        // password; the user's tenant/role/account type already live on their
-        // record, so nothing extra is chosen at sign-in.
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),

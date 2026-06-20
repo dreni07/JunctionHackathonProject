@@ -4,17 +4,57 @@ namespace Database\Seeders;
 
 use App\Models\Alert;
 use App\Models\Event;
+use App\Models\EventRequest;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\EventRequestService;
 use Illuminate\Database\Seeder;
 
 /**
  * A small slice of operational life — events, tasks assigned to tenant workers,
- * and alerts — so the operations dashboard has real data. Seeds only when empty.
+ * alerts, and pending event requests — so the operations dashboard has real
+ * data. Each section seeds only when its table is empty.
  */
 class OperationsDemoSeeder extends Seeder
 {
     public function run(): void
+    {
+        $this->seedPendingRequests();
+        $this->seedEventsTasksAndAlerts();
+    }
+
+    /**
+     * A few unconfirmed event requests for the operations dashboard to triage.
+     */
+    private function seedPendingRequests(): void
+    {
+        if (EventRequest::query()->exists()) {
+            return;
+        }
+
+        $samples = [
+            ['Balkan Founders Mixer', 'meetup', 'Networking for startup founders', 80, '+90 days', 18, 21],
+            ['AI Builders Conference', 'conference', 'A day of AI talks and demos', 110, '+94 days', 9, 17],
+            ['Open Source Hack Night', 'hackathon', 'Evening community hackathon', 60, '+97 days', 17, 23],
+        ];
+
+        $service = app(EventRequestService::class);
+
+        foreach ($samples as [$title, $type, $description, $attendees, $offset, $startHour, $endHour]) {
+            $day = now()->modify($offset);
+
+            $service->create([
+                'title' => $title,
+                'event_type' => $type,
+                'description' => $description,
+                'attendees' => $attendees,
+                'preferred_start_at' => $day->copy()->setTime($startHour, 0)->toIso8601String(),
+                'preferred_end_at' => $day->copy()->setTime($endHour, 0)->toIso8601String(),
+            ], 'Seeded demo request');
+        }
+    }
+
+    private function seedEventsTasksAndAlerts(): void
     {
         if (Event::query()->exists()) {
             return;
