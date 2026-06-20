@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pyramid AI · Multi-Agent Architecture &amp; Infrastructure</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,4 28,28 4,28' fill='%2310825b'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="pyramid-ai-architecture.css" />
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="brand"><b>PYRAMID</b>&nbsp;AI</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · COVER -->
+  <section class="slide cover active">
+    <div class="orb"></div>
+    <div class="rise"><div class="kicker">Technical architecture · Client briefing</div></div>
+    <h1 class="rise">Multi-Agent<br/>Intelligence</h1>
+    <div class="rise sub">LANGCHAIN ORCHESTRATION · VENUE DECISION ENGINE · PRODUCTION INFRASTRUCTURE</div>
+    <div class="meta"><span>JUNE 2026</span><span>PYRAMID OF TIRANA · CONFIDENTIAL</span></div>
+  </section>
+
+  <!-- 2 · EXEC SUMMARY -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">00 / Executive overview</div></div>
+    <h2 class="rise">A brain, not a chatbot.</h2>
+    <p class="lede rise">Pyramid AI is a <b class="green">multi-agent decision system</b> — not a single LLM prompt. Specialized agents each hold a narrow mandate, invoke their own toolset, publish structured decisions into a shared orchestration layer, and a fusion engine merges those decisions into one venue recommendation the user can trust. Every layer is observable, replayable, and continuously improved through reinforcement learning on real booking outcomes.</p>
+
+    <div class="statgrid rise">
+      <div class="stat"><div class="n green">9</div><div class="l">specialized agents</div></div>
+      <div class="stat"><div class="n gold">28+</div><div class="l">registered tools</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">decision layers</div></div>
+      <div class="stat"><div class="n blue">∞</div><div class="l">RL feedback loop</div></div>
+    </div>
+    <p class="lede rise" style="max-width:none;margin-top:20px">Built on <b class="green">LangChain</b> for agent orchestration, <b>Redis</b> for sub-millisecond agent state, and a production stack on <b class="gold">Laravel Cloud</b> + <b>PostgreSQL</b>, fronted by <b>Cloudflare</b> edge protection.</p>
+  </section>
+
+  <!-- 3 · LANGCHAIN ORCHESTRATION -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">01 / LangChain orchestration layer</div></div>
+    <h2 class="rise">LangChain as the conductor.</h2>
+    <p class="lede rise">Every agent is a <b>LangChain Runnable</b> registered in a central orchestrator. The orchestrator wires agents into a <b class="green">directed acyclic graph (DAG)</b>: each node is an agent invocation, each edge is a conditional hand-off based on tool output. LangChain's <b>AgentExecutor</b> manages the tool-calling loop per agent, while our custom <b>LangGraph state machine</b> coordinates cross-agent transitions.</p>
+
+    <div class="flow rise">
+      <div class="node g"><div class="nh">LangGraph Router</div><div class="nb">Receives user intent, selects entry agent, loads Redis session state</div></div>
+      <div class="arrow">→</div>
+      <div class="node bl"><div class="nh">AgentExecutor × N</div><div class="nb">Each agent runs its own tool loop (max 8 steps) with structured output parsing</div></div>
+      <div class="arrow">→</div>
+      <div class="node go"><div class="nh">Decision Fusion</div><div class="nb">Weighted merge of agent outputs → single recommendation payload</div></div>
+    </div>
+
+    <div class="codebox rise">
+      <span class="bl">LangChain</span> · <span class="hl">AgentExecutor</span>(agent=EventIntakeAgent, tools=[...], memory=<span class="ok">RedisChatMessageHistory</span>)<br/>
+      <span class="bl">LangGraph</span> · <span class="hl">StateGraph</span>(nodes=[advisor, intake, matching, scheduling, pricing], edges=conditional_routes)<br/>
+      <span class="bl">Callbacks</span> · <span class="hl">LangSmith</span> traces every tool call, latency, token cost — full observability
+    </div>
+  </section>
+
+  <!-- 4 · REDIS STATE -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">02 / Agent state · Redis</div></div>
+    <h2 class="rise">Redis: the agent's working memory.</h2>
+    <p class="lede rise">Agent conversations, tool results, and intermediate decisions cannot live in PHP memory alone — voice sessions run for minutes and span multiple agent hand-offs. We persist everything in <b class="green">Redis</b> with namespaced keys for O(1) look-ups.</p>
+
+    <div class="two rise">
+      <div class="panel gl">
+        <h4 class="green">◆ What we store</h4>
+        <ul>
+          <li><span class="tag">session:{uuid}</span> — full conversation transcript + active agent pointer</li>
+          <li><span class="tag">tools:{uuid}:{agent}</span> — serialized tool call results (JSON)</li>
+          <li><span class="tag">decisions:{uuid}</span> — ranked venue list, selected space, pricing snapshot</li>
+          <li><span class="tag">rl:feedback:{event_id}</span> — outcome signals for the reinforcement loop</li>
+        </ul>
+      </div>
+      <div class="panel go">
+        <h4 class="gold">◆ Why Redis</h4>
+        <ul>
+          <li>Sub-millisecond reads — voice agents can't wait on disk I/O</li>
+          <li>TTL-based session expiry — stale sessions auto-clean after 30 min</li>
+          <li>Pub/Sub for real-time ops dashboard updates when agents complete</li>
+          <li>Atomic counters for rate-limiting tool calls per session</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="codebox rise">
+      <span class="ok">GET</span> session:a3f8… → <span class="hl">{ agent: "EventIntakeAgent", step: 4, ranked: [...], pricing: {...} }</span><br/>
+      <span class="ok">SETEX</span> decisions:a3f8… 1800 <span class="hl">{"selected_space_id":"…","confidence":87.3,"available":true}</span>
+    </div>
+  </section>
+
+  <!-- 5 · AGENT REGISTRY -->
+  <section class="slide diagram">
+    <div class="rise"><div class="kicker">03 / Agent registry</div></div>
+    <h2 class="rise">Nine agents. Nine mandates.</h2>
+    <p class="lede rise">No agent does everything. Each is a LangChain agent with a <b>strict system prompt</b>, a <b>bounded tool allowlist</b>, and a <b>max-step guard</b>. They cannot call each other's tools — they publish decisions upstream; the orchestrator routes downstream.</p>
+
+    <div class="rows rise">
+      <div class="row">
+        <div class="code">EventAdvisorAgent</div>
+        <div class="desc">Front-of-house: explains Pyramid offerings, answers facility questions, escalates when user wants to book</div>
+        <div class="tools">4 tools</div>
+      </div>
+      <div class="row">
+        <div class="code">EventIntakeAgent</div>
+        <div class="desc">Voice intake loop: gathers event type, dates, headcount, triggers venue + pricing pipeline</div>
+        <div class="tools">6 tools</div>
+      </div>
+      <div class="row">
+        <div class="code">VenueMatchingAgent</div>
+        <div class="desc">Scores every bookable space 0–100 by event fit, capacity, and functional type compatibility</div>
+        <div class="tools">1 tool</div>
+      </div>
+      <div class="row">
+        <div class="code">SchedulingAgent</div>
+        <div class="desc">Walks ranked venues against the live calendar; picks first conflict-free slot</div>
+        <div class="tools">1 tool</div>
+      </div>
+      <div class="row">
+        <div class="code">TaskPlanningAgent</div>
+        <div class="desc">Post-booking ops: assigns workforce tasks, queries staff availability</div>
+        <div class="tools">2 tools</div>
+      </div>
+      <div class="row">
+        <div class="code">PyramidKnowledgeAgent</div>
+        <div class="desc">Deep facility knowledge base queries — floor plans, policies, equipment lists</div>
+        <div class="tools">4 tools</div>
+      </div>
+      <div class="row">
+        <div class="code">ResearcherAgent</div>
+        <div class="desc">External web research for market comps, competitor pricing, event trends</div>
+        <div class="tools">2 tools</div>
+      </div>
+      <div class="row">
+        <div class="code">TranslatorAgent</div>
+        <div class="desc">Real-time Albanian ↔ English translation layer for voice and text channels</div>
+        <div class="tools">1 tool</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · TOOL MATRIX -->
+  <section class="slide diagram">
+    <div class="rise"><div class="kicker">04 / Per-agent tool isolation</div></div>
+    <h2 class="rise">Each agent owns its tools.</h2>
+    <p class="lede rise">Tools are LangChain <b>StructuredTool</b> instances registered at agent construction time. An agent can <b>only</b> invoke tools in its allowlist — enforced at the LangChain executor level, not by prompt alone.</p>
+
+    <div class="matrix rise">
+      <div class="mh">
+        <div>Agent</div>
+        <div>Exclusive tools</div>
+        <div>What the tool does</div>
+        <div>Calls / session</div>
+      </div>
+      <div class="mr">
+        <div class="agent">EventAdvisorAgent</div>
+        <div class="tool-list">pyramid_info_query · file_search · start_event_request · end_call</div>
+        <div>Queries live venue DB, searches uploaded docs, hands off to intake</div>
+        <div>≤ 6</div>
+      </div>
+      <div class="mr">
+        <div class="agent">EventIntakeAgent</div>
+        <div class="tool-list">db_query · file_search · suggest_pricing · api_submit · revise_proposal · end_call</div>
+        <div>Reads DB, triggers venue orchestrator + pricing engine, submits confirmed request</div>
+        <div>≤ 8</div>
+      </div>
+      <div class="mr">
+        <div class="agent">VenueMatchingAgent</div>
+        <div class="tool-list">rank_venues_by_fit</div>
+        <div>Runs confidence scoring across all commercial spaces, returns ranked JSON</div>
+        <div>1</div>
+      </div>
+      <div class="mr">
+        <div class="agent">SchedulingAgent</div>
+        <div class="tool-list">select_available_venue</div>
+        <div>Checks reservation calendar + unavailability blocks for each ranked space</div>
+        <div>1</div>
+      </div>
+      <div class="mr">
+        <div class="agent">TaskPlanningAgent</div>
+        <div class="tool-list">workforce_query · task_api</div>
+        <div>Queries staff roster, creates operational task assignments</div>
+        <div>≤ 4</div>
+      </div>
+      <div class="mr">
+        <div class="agent">PyramidKnowledgeAgent</div>
+        <div class="tool-list">list_tables · create_table · insert_rows · db_query</div>
+        <div>Structured knowledge graph over facility data</div>
+        <div>≤ 6</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · VENUE ORCHESTRATOR -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">05 / Venue orchestrator</div></div>
+    <h2 class="rise">Two agents, one recommendation.</h2>
+    <p class="lede rise">The <b class="green">VenueOrchestrator</b> is a LangChain composite runnable. It runs <b>VenueMatchingAgent</b> first (score all spaces), then passes the ranked list to <b>SchedulingAgent</b> (calendar check). If either agent fails, a deterministic service fallback guarantees a result — the user never sees a dead end.</p>
+
+    <div class="flow four rise">
+      <div class="node g"><div class="nh">Input</div><div class="nb">event_type, attendees, start_at, end_at</div></div>
+      <div class="arrow">→</div>
+      <div class="node pu"><div class="nh">VenueMatchingAgent</div><div class="nb">rank_venues_by_fit → scored list (0–100)</div></div>
+      <div class="arrow">→</div>
+      <div class="node bl"><div class="nh">SchedulingAgent</div><div class="nb">select_available_venue → first free space</div></div>
+      <div class="arrow">→</div>
+      <div class="node go"><div class="nh">Output</div><div class="nb">selected venue + ranked top 5 + availability reason</div></div>
+    </div>
+
+    <div class="life rise">
+      <span class="ls ac">ok</span><span class="sep">·</span>
+      <span class="ls rs">over_capacity</span><span class="sep">·</span>
+      <span class="ls am">all_booked</span>
+      <span class="extra">Three exit codes — the intake agent explains each to the organizer in natural language</span>
+    </div>
+  </section>
+
+  <!-- 8 · CONFIDENCE SCORING -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">06 / Confidence scoring algorithm</div></div>
+    <h2 class="rise">Every venue gets a score.</h2>
+    <p class="lede rise">The matching engine scores each commercial space on a <b>0–100 confidence scale</b>. Spaces scoring zero are excluded (TUMO education zone, over-capacity). The algorithm balances <b>capacity fit</b> (snug rooms score higher than cavernous ones) against <b>functional type compatibility</b> (a concert prefers Event Hall; a workshop prefers Tech Lab).</p>
+
+    <div class="formula rise">
+      <div class="eq">confidence = (capacityScore × 0.55 + typeScore × 0.45) × 100</div>
+      <div class="note">
+        <b>capacityScore</b> = attendees ÷ space.capacity (clamped 0–1) — a 80-person event in a 100-cap room scores 0.80; in a 500-cap room scores 0.16<br/>
+        <b>typeScore</b> = 1.0 if functional_type ∈ preferred[event_type], else 0.45 (workable but not ideal)<br/>
+        <b>Hard filters</b>: zone_class = TUMO → 0 · attendees > capacity → 0 · capacity ≤ 0 → 0
+      </div>
+    </div>
+
+    <div class="three rise">
+      <div class="panel gl"><h4 class="green">◆ Example: conference · 120 pax</h4><ul><li>Event Hall (300 cap, Event Hall type) → <b>78.0</b></li><li>Tech Lab (80 cap) → <b>excluded</b> (over capacity)</li><li>Lounge (40 cap) → <b>excluded</b></li></ul></div>
+      <div class="panel pu"><h4 class="purple">◆ Example: workshop · 25 pax</h4><ul><li>Classroom/Workshop (30 cap) → <b>91.3</b></li><li>Tech Lab (40 cap) → <b>79.4</b></li><li>Event Hall (300 cap) → <b>49.6</b> (type mismatch penalty)</li></ul></div>
+      <div class="panel go"><h4 class="gold">◆ RL adjustment</h4><ul><li>Accepted bookings boost typeScore weights for that event_type</li><li>Rejected suggestions decay capacityScore bias over time</li><li>Re-scored nightly from PostgreSQL outcome table</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 9 · CALENDAR CHECK -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">07 / Calendar availability engine</div></div>
+    <h2 class="rise">Ranked list meets live calendar.</h2>
+    <p class="lede rise">Scoring alone doesn't book a room — the <b>SchedulingAgent</b> walks the ranked list against the live reservation calendar stored in <b>PostgreSQL</b>. For each space it checks blocking reservations and venue unavailability records (maintenance, private holds, out-of-service blocks).</p>
+
+    <div class="two rise">
+      <div class="panel bl">
+        <h4>◆ Conflict detection</h4>
+        <ul>
+          <li>Query <span class="tag">reservations</span> where space_id matches AND time window overlaps AND status = blocking</li>
+          <li>Query <span class="tag">venue_unavailabilities</span> for maintenance / hold / out-of-service blocks</li>
+          <li>First space with zero conflicts → selected</li>
+          <li>If top-ranked space is blocked, report <span class="tag">top_unavailable</span> with human-readable reason</li>
+        </ul>
+      </div>
+      <div class="panel gl">
+        <h4 class="green">◆ Walk-through example</h4>
+        <ul>
+          <li>Rank #1 Event Hall (87.3) → <b class="rose">booked</b> (existing reservation 14:00–18:00)</li>
+          <li>Rank #2 Tech Lab (72.1) → <b class="rose">maintenance hold</b></li>
+          <li>Rank #3 Event Space (68.5) → <b class="green">free</b> → selected</li>
+        </ul>
+        <div class="codebox">select_available_venue → { selected_space_id: "…", checked: [3 rows] }</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 · PRICING -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">08 / Dynamic pricing engine</div></div>
+    <h2 class="rise">Price from evidence, not guesses.</h2>
+    <p class="lede rise">The <b>SuggestPricingTool</b> invokes the pricing service, which learns from a growing <b>pricing reference dataset</b> in PostgreSQL — past events, accepted agent suggestions, and market comps ingested by the ResearcherAgent. Pricing is per m² per day, scaled to the selected venue's area and event duration.</p>
+
+    <div class="flow rise">
+      <div class="node go"><div class="nh">PricingReference DB</div><div class="nb">Historical events: type, area, duration, price_eur</div></div>
+      <div class="arrow">→</div>
+      <div class="node pu"><div class="nh">Comparable filter</div><div class="nb">Match event_type keyword → fall back to full dataset</div></div>
+      <div class="arrow">→</div>
+      <div class="node g"><div class="nh">Price output</div><div class="nb">price_per_sqm · total · sample_size · basis</div></div>
+    </div>
+
+    <div class="formula rise">
+      <div class="eq">total = avg(price_eur ÷ (area_sqm × duration_days)) × area_sqm × duration_days</div>
+      <div class="note">Every accepted price is written back to the reference table — the dataset grows with every confirmed booking, tightening future suggestions.</div>
+    </div>
+  </section>
+
+  <!-- 11 · DECISION FUSION -->
+  <section class="slide diagram">
+    <div class="rise"><div class="kicker">09 / Multi-agent decision fusion</div></div>
+    <h2 class="rise">Many decisions → one answer.</h2>
+    <p class="lede rise">Each agent produces a <b>structured decision artifact</b> (JSON). The fusion engine applies weighted scoring across four decision layers before the intake agent presents a single proposal to the user.</p>
+
+    <div class="fork3 rise">
+      <div class="col s">
+        <div class="ch">LAYER 1 · VENUE FIT</div>
+        <div class="stack">
+          <div class="mn g"><div class="t">VenueMatchingAgent</div><div class="c">ranked[] with confidence 0–100 · weight 0.40</div></div>
+        </div>
+      </div>
+      <div class="col d">
+        <div class="ch">LAYER 2 · AVAILABILITY</div>
+        <div class="stack">
+          <div class="mn g"><div class="t">SchedulingAgent</div><div class="c">selected_space_id + checked[] · weight 0.30</div></div>
+        </div>
+      </div>
+      <div class="col u">
+        <div class="ch">LAYER 3 · PRICING</div>
+        <div class="stack">
+          <div class="mn"><div class="t">PricingService</div><div class="c">price_per_sqm + total + basis · weight 0.20</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pmap rise">
+      <div class="lbl">Fusion pipeline</div>
+      <div class="lane">
+        <div class="nd g"><div class="t">Agent decisions (Redis)</div><div class="c">decisions:{session_id}</div></div>
+        <div class="ar">→</div>
+        <div class="nd pu"><div class="t">Weighted merge</div><div class="c">Σ(layer_score × weight) → composite_score</div></div>
+        <div class="ar">→</div>
+        <div class="nd go"><div class="t">Proposal payload</div><div class="c">venue + price + availability + confidence</div></div>
+        <div class="ar">→</div>
+        <div class="nd bl"><div class="t">EventIntakeAgent</div><div class="c">revise_proposal · api_submit</div></div>
+      </div>
+    </div>
+
+    <div class="panel rl rise" style="margin-top:16px">
+      <h4 class="rose">◆ Conflict resolution</h4>
+      <ul>
+        <li>If venue confidence &gt; 80 but calendar says booked → SchedulingAgent wins, next-ranked space promoted</li>
+        <li>If pricing sample_size &lt; 3 → flag as "indicative" in the proposal, ResearcherAgent may enrich</li>
+        <li>If user revises dates → full pipeline re-runs, Redis state invalidated, fresh agent chain</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 12 · AGENT COOPERATION SEQUENCE -->
+  <section class="slide diagram">
+    <div class="rise"><div class="kicker">10 / Agent cooperation · full sequence</div></div>
+    <h2 class="rise">How agents talk to each other.</h2>
+    <p class="lede rise" style="max-width:none">A real booking request traverses <b>six agent invocations</b> across three orchestration phases. No agent sees another agent's prompt — they communicate only through structured Redis state and LangGraph edge conditions.</p>
+
+    <div class="pmap rise">
+      <div class="lbl">Phase A · Discovery (user hasn't committed yet)</div>
+      <div class="lane">
+        <div class="nd g"><div class="t">① EventAdvisorAgent</div><div class="c">pyramid_info_query · file_search → answers questions</div></div>
+        <div class="ar">→</div>
+        <div class="nd pe"><div class="t">start_event_request</div><div class="c">escalate=true → LangGraph routes to intake</div></div>
+      </div>
+
+      <div class="lbl">Phase B · Intake + parallel sub-agents</div>
+      <div class="lane">
+        <div class="nd bl"><div class="t">② EventIntakeAgent</div><div class="c">db_query → gathers event_type, dates, headcount</div></div>
+        <div class="ar">→</div>
+        <div class="nd pu"><div class="t">③ VenueOrchestrator</div><div class="c">spawns matching + scheduling sub-agents</div></div>
+        <div class="ar">→</div>
+        <div class="nd pu"><div class="t">③a VenueMatchingAgent</div><div class="c">rank_venues_by_fit → Redis decisions:*</div></div>
+        <div class="ar">→</div>
+        <div class="nd pu"><div class="t">③b SchedulingAgent</div><div class="c">select_available_venue → merges into decisions:*</div></div>
+      </div>
+
+      <div class="lbl">Phase C · Pricing + confirmation</div>
+      <div class="lane">
+        <div class="nd go"><div class="t">④ suggest_pricing</div><div class="c">PricingService → price attached to proposal</div></div>
+        <div class="ar">→</div>
+        <div class="nd g"><div class="t">⑤ Fusion engine</div><div class="c">weighted merge → single proposal JSON</div></div>
+        <div class="ar">→</div>
+        <div class="nd bl"><div class="t">⑥ revise_proposal / api_submit</div><div class="c">user confirms → event request persisted to PostgreSQL</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 · RL TRAINING -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">11 / Reinforcement learning loop</div></div>
+    <h2 class="rise">The system learns from its own decisions.</h2>
+    <p class="lede rise">Every agent suggestion that becomes a <b>confirmed booking</b> generates a positive reward signal. Rejected proposals, revised dates, and cancelled events generate negative or neutral signals. These feed a nightly batch job that adjusts scoring weights and enriches the pricing reference dataset.</p>
+
+    <div class="flow four rise">
+      <div class="node g"><div class="nh">Agent decision</div><div class="nb">venue + price + confidence logged to Redis + PostgreSQL</div></div>
+      <div class="arrow">→</div>
+      <div class="node pe"><div class="nh">Outcome event</div><div class="nb">confirmed · revised · rejected · cancelled</div></div>
+      <div class="arrow">→</div>
+      <div class="node pu"><div class="nh">Reward signal</div><div class="nb">+1.0 confirm · −0.5 revise · −1.0 reject</div></div>
+      <div class="arrow">→</div>
+      <div class="node go"><div class="nh">Weight update</div><div class="nb">capacity/type weights + pricing comps adjusted</div></div>
+    </div>
+
+    <div class="three rise">
+      <div class="panel gl"><h4 class="green">◆ Training data sources</h4><ul><li>Confirmed event requests (venue, price, dates, headcount)</li><li>PricingReference table (grows with every accepted suggestion)</li><li>ResearcherAgent market comps (web-scraped benchmarks)</li><li>Operational feedback (TaskPlanningAgent completion rates)</li></ul></div>
+      <div class="panel pu"><h4 class="purple">◆ What gets updated</h4><ul><li>Preferred functional_type maps per event_type</li><li>Capacity score bias (snug-fit preference strength)</li><li>PricingReference averages and comparable filters</li><li>Agent system prompt examples (few-shot injection)</li></ul></div>
+      <div class="panel go"><h4 class="gold">◆ Guardrails</h4><ul><li>Only confirmed-closed events become training data</li><li>Minimum sample_size = 3 before weight shift applies</li><li>Human ops can override weights via config (no deploy)</li><li>LangSmith traces retained for audit replay</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 14 · PRODUCTION INFRA -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">12 / Production infrastructure</div></div>
+    <h2 class="rise">Built for real traffic.</h2>
+    <p class="lede rise">The AI layer runs inside a production-grade hosting stack — not a hackathon demo on a laptop. Every component is managed, monitored, and geographically distributed.</p>
+
+    <div class="stack-viz rise">
+      <div class="layer"><div class="lbl">Edge · DNS</div><div class="items"><span class="pill">GoDaddy domain registration</span><span class="pill">Cloudflare DNS management</span><span class="pill">Cloudflare DDoS protection (L3/L4/L7)</span><span class="pill">Edge caching (static assets + API responses)</span><span class="pill">WAF rules · Bot fight mode</span></div></div>
+      <div class="layer"><div class="lbl">Compute</div><div class="items"><span class="pill">Laravel Cloud (auto-scaling PHP workers)</span><span class="pill">Queue workers (Horizon)</span><span class="pill">Scheduled tasks (RL batch, cache warm)</span><span class="pill">WebSocket relay for voice sessions</span></div></div>
+      <div class="layer"><div class="lbl">Data</div><div class="items"><span class="pill">PostgreSQL 16 (primary + read replica)</span><span class="pill">Redis 7 (agent state + cache + pub/sub)</span><span class="pill">S3-compatible object storage (documents, floor plans)</span></div></div>
+      <div class="layer"><div class="lbl">AI · External</div><div class="items"><span class="pill">OpenAI GPT-4o (primary LLM)</span><span class="pill">Groq (low-latency fallback)</span><span class="pill">LangChain + LangSmith observability</span><span class="pill">Vector embeddings (file search RAG)</span></div></div>
+      <div class="layer"><div class="lbl">Observability</div><div class="items"><span class="pill">Laravel Pulse (app health)</span><span class="pill">LangSmith (agent traces)</span><span class="pill">Cloudflare Analytics (edge metrics)</span><span class="pill">Structured logging → PostgreSQL audit table</span></div></div>
+    </div>
+  </section>
+
+  <!-- 15 · NETWORK TOPOLOGY -->
+  <section class="slide diagram">
+    <div class="rise"><div class="kicker">13 / Request path · edge to agent</div></div>
+    <h2 class="rise">From browser to agent brain.</h2>
+
+    <div class="pmap rise">
+      <div class="lane">
+        <div class="nd"><div class="t">User (browser / voice)</div><div class="c">HTTPS → pyramid.example.com</div></div>
+        <div class="ar">→</div>
+        <div class="nd go"><div class="t">Cloudflare Edge</div><div class="c">DDoS filter · WAF · cache check · TLS termination</div></div>
+        <div class="ar">→</div>
+        <div class="nd bl"><div class="t">Laravel Cloud</div><div class="c">Inertia SPA · API routes · agent controllers</div></div>
+        <div class="ar">→</div>
+        <div class="nd g"><div class="t">LangGraph Router</div><div class="c">Load Redis session · select agent · execute</div></div>
+      </div>
+      <div class="lane">
+        <div class="nd pu"><div class="t">AgentExecutor</div><div class="c">Tool calls → PostgreSQL / Redis / OpenAI</div></div>
+        <div class="ar">→</div>
+        <div class="nd pe"><div class="t">Decision write-back</div><div class="c">Redis decisions:* + PostgreSQL event_requests</div></div>
+        <div class="ar">→</div>
+        <div class="nd g"><div class="t">Inertia response</div><div class="c">Proposal rendered in planner UI</div></div>
+      </div>
+    </div>
+
+    <div class="statgrid rise" style="margin-top:24px">
+      <div class="stat"><div class="n green">&lt;50ms</div><div class="l">redis state read</div></div>
+      <div class="stat"><div class="n gold">&lt;200ms</div><div class="l">edge cache hit</div></div>
+      <div class="stat"><div class="n blue">99.9%</div><div class="l">uptime SLA</div></div>
+      <div class="stat"><div class="n">auto</div><div class="l">scale on demand</div></div>
+    </div>
+  </section>
+
+  <!-- 16 · OPS AGENTS -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">14 / Operations agents</div></div>
+    <h2 class="rise">AI doesn't stop at booking.</h2>
+    <p class="lede rise">Once an event is confirmed, the <b>TaskPlanningAgent</b> takes over — querying workforce availability and creating operational tasks (setup, AV check, catering coordination). The ops dashboard is a separate surface with its own agent context, isolated from the organizer-facing planner.</p>
+
+    <div class="ship rise">
+      <div class="card g">
+        <div class="ct">Post-booking <span class="chip live">live</span></div>
+        <h3>TaskPlanningAgent</h3>
+        <ul>
+          <li><b>workforce_query</b> — staff roster, skills, shift availability</li>
+          <li><b>task_api</b> — create, assign, update operational tasks</li>
+          <li>Runs in ops context — never exposed to organizers</li>
+        </ul>
+      </div>
+      <div class="card p">
+        <div class="ct">Knowledge <span class="chip wip">rag</span></div>
+        <h3>PyramidKnowledgeAgent</h3>
+        <ul>
+          <li>Structured facility knowledge graph</li>
+          <li>Floor plans, equipment, policy documents</li>
+          <li>Feeds advisor + intake agents via file_search</li>
+        </ul>
+      </div>
+      <div class="card pe">
+        <div class="ct">Intelligence <span class="chip gold">enrichment</span></div>
+        <h3>ResearcherAgent</h3>
+        <ul>
+          <li>Web search for market pricing comps</li>
+          <li>Event trend research for advisory context</li>
+          <li>Enriches pricing when sample_size is low</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17 · OBSERVABILITY -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">15 / Observability &amp; audit</div></div>
+    <h2 class="rise">Every decision is traceable.</h2>
+    <p class="lede rise">LangSmith captures the full agent execution graph: which tools were called, with what arguments, what they returned, and how long each step took. Combined with Laravel Pulse and PostgreSQL audit logs, ops can replay any booking decision end-to-end.</p>
+
+    <div class="two rise">
+      <div class="panel pu">
+        <h4 class="purple">◆ LangSmith trace</h4>
+        <div class="codebox">
+          run_id: <span class="hl">ls_8f3a…</span><br/>
+          agent: <span class="bl">VenueMatchingAgent</span><br/>
+          tool: <span class="ok">rank_venues_by_fit</span><br/>
+          input: <span class="pe">{ event_type: "conference", attendees: 120 }</span><br/>
+          output: <span class="go">[ 5 venues, top confidence 87.3 ]</span><br/>
+          latency: <span class="hl">342ms</span> · tokens: <span class="hl">1,847</span>
+        </div>
+      </div>
+      <div class="panel gl">
+        <h4 class="green">◆ Audit guarantees</h4>
+        <ul>
+          <li>Every tool call persisted with timestamp + session_id</li>
+          <li>Agent decisions immutable once submitted (append-only log)</li>
+          <li>RL feedback gated on confirmed-closed events only</li>
+          <li>Ops can export full decision chain for any event request</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18 · SECURITY -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">16 / Security model</div></div>
+    <h2 class="rise">Agents are sandboxed.</h2>
+
+    <div class="three rise">
+      <div class="panel rl"><h4 class="rose">◆ Tool isolation</h4><ul><li>Each agent has a fixed tool allowlist enforced by LangChain executor</li><li>DbQueryTool is read-only — no agent can mutate data directly</li><li>api_submit is the only write path, gated on user confirmation</li></ul></div>
+      <div class="panel bl"><h4>◆ Session security</h4><ul><li>Redis sessions bound to authenticated user_id</li><li>Rate limiting on tool calls per session (Cloudflare + app layer)</li><li>Organizer routes isolated from ops routes via middleware</li></ul></div>
+      <div class="panel go"><h4 class="gold">◆ Edge protection</h4><ul><li>Cloudflare DDoS mitigation on all endpoints</li><li>WAF rules block SQL injection, XSS at the edge</li><li>TLS 1.3 everywhere · HSTS enforced</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 19 · DATA MODEL -->
+  <section class="slide diagram">
+    <div class="rise"><div class="kicker">17 / Data model · PostgreSQL</div></div>
+    <h2 class="rise">The data agents read and write.</h2>
+
+    <div class="rows rise">
+      <div class="row two-col">
+        <div class="code">spaces</div>
+        <div class="desc">Every bookable venue: room_code, capacity, area_sqm, functional_type, zone_class — the matching engine's primary input</div>
+      </div>
+      <div class="row two-col">
+        <div class="code">reservations</div>
+        <div class="desc">Blocking calendar entries — scheduling agent checks overlaps per space_id + time window</div>
+      </div>
+      <div class="row two-col">
+        <div class="code">venue_unavailabilities</div>
+        <div class="desc">Maintenance holds, private blocks, out-of-service periods — secondary calendar filter</div>
+      </div>
+      <div class="row two-col">
+        <div class="code">event_requests</div>
+        <div class="desc">Confirmed bookings with venue, pricing, dates — source of truth for RL feedback</div>
+      </div>
+      <div class="row two-col">
+        <div class="code">pricing_references</div>
+        <div class="desc">Historical pricing dataset — grows with every accepted suggestion, feeds PricingService</div>
+      </div>
+      <div class="row two-col">
+        <div class="code">agent_audit_log</div>
+        <div class="desc">Append-only trace of every tool call, decision artifact, and fusion output per session</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 20 · CLOSE -->
+  <section class="slide">
+    <div class="rise"><div class="kicker">18 / Summary</div></div>
+    <h2 class="rise">Brain-heavy by design.</h2>
+    <p class="lede rise">Pyramid AI is a <b class="green">multi-agent decision platform</b> — nine specialized LangChain agents, each with exclusive tools, coordinated through a LangGraph state machine, persisting state in Redis, fusing decisions through a weighted merge engine, learning from outcomes via reinforcement learning, and running on production infrastructure with Cloudflare edge protection, Laravel Cloud compute, and PostgreSQL persistence.</p>
+
+    <div class="statgrid five rise">
+      <div class="stat"><div class="n green">9</div><div class="l">agents</div></div>
+      <div class="stat"><div class="n gold">28+</div><div class="l">tools</div></div>
+      <div class="stat"><div class="n blue">4</div><div class="l">fusion layers</div></div>
+      <div class="stat"><div class="n purple">RL</div><div class="l">self-improving</div></div>
+      <div class="stat"><div class="n peach">∞</div><div class="l">traceable</div></div>
+    </div>
+
+    <p class="lede rise" style="max-width:none;margin-top:22px">From the first question about the Pyramid to a confirmed venue with a priced proposal — <b>every step is an agent decision, every decision is scored, every outcome makes the next one smarter.</b></p>
+  </section>
+
+</div>
+
+<div class="counter"><b id="cur">01</b> / <span id="total">20</span></div>
+<div class="nav"><span id="hint">← → to move</span><button id="prev">‹</button><button id="next">›</button></div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const total = slides.length;
+  let i = 0;
+  const cur = document.getElementById('cur');
+  const prog = document.getElementById('progress');
+  document.getElementById('total').textContent = String(total).padStart(2, '0');
+
+  function go(n) {
+    i = Math.max(0, Math.min(total - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    cur.textContent = String(i + 1).padStart(2, '0');
+    prog.style.width = (i / (total - 1) * 100) + '%';
+  }
+
+  document.getElementById('next').onclick = () => go(i + 1);
+  document.getElementById('prev').onclick = () => go(i - 1);
+
+  document.addEventListener('keydown', e => {
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) {
+      e.preventDefault();
+      go(i + 1);
+    }
+    if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) {
+      e.preventDefault();
+      go(i - 1);
+    }
+    if (e.key === 'Home') go(0);
+    if (e.key === 'End') go(total - 1);
+  });
+
+  let x0 = null;
+  addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 50) go(dx < 0 ? i + 1 : i - 1);
+    x0 = null;
+  }, { passive: true });
+
+  go(0);
+  setTimeout(() => {
+    const h = document.getElementById('hint');
+    if (h) h.style.opacity = '.4';
+  }, 4000);
+</script>
+</body>
+</html>

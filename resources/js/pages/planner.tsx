@@ -1566,6 +1566,11 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         setEnded(true);
     };
 
+    const goBack = () => {
+        end();
+        onExit();
+    };
+
     useEffect(() => {
         // Preload Kleopatra's three faces so switching states is instant.
         Object.values(KLEOPATRA).forEach((src) => {
@@ -1594,12 +1599,21 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 18,
-                    padding: 24,
+                    alignItems: 'stretch',
+                    padding: '24px clamp(24px,4vw,48px)',
                 }}
             >
+                <div style={{ marginBottom: 8 }}>{voiceGoBackButton(goBack)}</div>
+                <div
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 18,
+                    }}
+                >
                 <span
                     style={{
                         display: 'flex',
@@ -1632,11 +1646,12 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                 </div>
                 <button
                     type="button"
-                    onClick={onExit}
+                    onClick={goBack}
                     style={primaryButton()}
                 >
                     Back to start
                 </button>
+                </div>
             </div>
         );
     }
@@ -1648,12 +1663,21 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 18,
-                    padding: 24,
+                    alignItems: 'stretch',
+                    padding: '24px clamp(24px,4vw,48px)',
                 }}
             >
+                <div style={{ marginBottom: 8 }}>{voiceGoBackButton(goBack)}</div>
+                <div
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 18,
+                    }}
+                >
                 <p
                     style={{
                         maxWidth: 420,
@@ -1671,6 +1695,7 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                     <Mic size={16} />
                     Try again
                 </button>
+                </div>
             </div>
         );
     }
@@ -1682,12 +1707,21 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 20,
-                    padding: 24,
+                    alignItems: 'stretch',
+                    padding: '24px clamp(24px,4vw,48px)',
                 }}
             >
+                <div style={{ marginBottom: 8 }}>{voiceGoBackButton(goBack)}</div>
+                <div
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 20,
+                    }}
+                >
                 <button
                     type="button"
                     onClick={() => void begin()}
@@ -1747,6 +1781,7 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                         to organize.
                     </p>
                 </div>
+                </div>
             </div>
         );
     }
@@ -1766,11 +1801,21 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
+                alignItems: 'stretch',
                 minHeight: 0,
-                padding: '8px 24px 24px',
+                padding: '24px clamp(24px,4vw,48px)',
             }}
         >
+            <div style={{ marginBottom: 8 }}>{voiceGoBackButton(goBack)}</div>
+            <div
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    minHeight: 0,
+                }}
+            >
             <div
                 style={{
                     position: 'relative',
@@ -1977,10 +2022,7 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
 
             <button
                 type="button"
-                onClick={() => {
-                    end();
-                    onExit();
-                }}
+                onClick={goBack}
                 style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -1998,6 +2040,7 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                 <X size={17} />
                 End conversation
             </button>
+            </div>
         </div>
     );
 }
@@ -3056,4 +3099,31 @@ function primaryButton(disabled = false): React.CSSProperties {
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.45 : 1,
     };
+}
+
+function voiceGoBackButton(onClick: () => void) {
+    return (
+        <button
+            type="button"
+            className="pl-ghost"
+            onClick={onClick}
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 16px',
+                borderRadius: 999,
+                border: `1px solid ${C.borderSoft}`,
+                background: C.card,
+                color: C.ink,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 10px 28px -18px rgba(26,26,26,0.35)',
+            }}
+        >
+            <ArrowLeft size={16} />
+            Go back
+        </button>
+    );
 }
