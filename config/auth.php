@@ -106,8 +106,8 @@ return [
     | Email Verification
     |--------------------------------------------------------------------------
     |
-    | The number of minutes a signed email-verification link stays valid.
-    | After this window the link expires and the user must request a fresh
+    | The number of minutes an email verification code stays valid.
+    | After this window the code expires and the user must request a fresh
     | one from the "verify email" screen.
     |
     */

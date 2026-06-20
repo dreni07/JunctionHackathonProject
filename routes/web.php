@@ -2,17 +2,26 @@
 
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\EventRequestController;
+use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\OcrController;
 use App\Http\Controllers\OperationalChangePollController;
+use App\Http\Controllers\PlannerAgentController;
 use App\Http\Controllers\PyramidKnowledgeController;
 use App\Http\Controllers\SpeechController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'landing')->name('home');
 
 Route::inertia('/planner', 'planner')->name('planner');
 
-// Speech (OpenAI): voice input + spoken replies for the planner. Public.
+Route::get('/facility', [FacilityController::class, 'index'])->name('facility');
+
+Route::post('/planner/agent', [PlannerAgentController::class, 'converse'])->name('planner.agent');
+
+Route::post('/event-requests', [EventRequestController::class, 'store'])->name('event-requests.store');
+
 Route::post('/speech/transcribe', [SpeechController::class, 'transcribe'])->name('speech.transcribe');
 Route::post('/speech/speak', [SpeechController::class, 'speak'])->name('speech.speak');
 
@@ -39,8 +48,21 @@ Route::get('pyramid/knowledge', [PyramidKnowledgeController::class, 'explore'])
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
+    // Operations dashboard shell (the React app reads the operations.* JSON API).
+    Route::get('operations', function (Request $request) {
+        $user = $request->user();
+
+        return Inertia\Inertia::render('operations/dashboard', [
+            'tenant' => $user?->tenant?->only(['id', 'title', 'description']),
+        ]);
+    })->name('operations.home');
+
     Route::get('operational/changes/poll', OperationalChangePollController::class)
         ->name('operational.changes.poll');
 });
+
+require __DIR__.'/auth.php';
+
+require __DIR__.'/operations.php';
 
 require __DIR__.'/settings.php';

@@ -21,30 +21,7 @@ export default function Login({ status, canResetPassword }: Props) {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
-        <AuthMinimalLayout
-            title="Log in"
-            topRight={
-                <>
-                    <p>
-                        New to Piramida?{' '}
-                        <Link
-                            href={register()}
-                            className="font-medium text-neutral-800 underline underline-offset-2"
-                        >
-                            Create an account
-                        </Link>
-                    </p>
-                    {canResetPassword && (
-                        <Link
-                            href={request()}
-                            className="text-neutral-500 hover:text-neutral-700"
-                        >
-                            Forget your user ID or password?
-                        </Link>
-                    )}
-                </>
-            }
-        >
+        <AuthMinimalLayout title="Log in">
             <div className="mb-7 text-center">
                 <h1 className="text-[26px] font-bold tracking-tight text-neutral-900">
                     Welcome back
@@ -139,6 +116,26 @@ export default function Login({ status, canResetPassword }: Props) {
                             {processing && <Spinner />}
                             Log in
                         </button>
+
+                        <div className="flex flex-col items-center gap-1.5 text-center text-sm text-neutral-500">
+                            <p>
+                                New to Piramida?{' '}
+                                <Link
+                                    href={register()}
+                                    className="font-medium text-neutral-800 underline underline-offset-2"
+                                >
+                                    Create an account
+                                </Link>
+                            </p>
+                            {canResetPassword && (
+                                <Link
+                                    href={request()}
+                                    className="hover:text-neutral-700"
+                                >
+                                    Forget your user ID or password?
+                                </Link>
+                            )}
+                        </div>
 
                         <p className="text-center text-[13px] leading-relaxed text-neutral-500">
                             By continuing, you agree to the{' '}

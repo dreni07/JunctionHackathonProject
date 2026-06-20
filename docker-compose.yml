@@ -24,7 +24,7 @@ services:
       # SMTP credentials — without these the container falls back to the `log`
       # mail driver and verification emails are never actually sent.
       MAIL_MAILER: ${MAIL_MAILER:-smtp}
-      MAIL_SCHEME: ${MAIL_SCHEME:-smtp}
+      MAIL_SCHEME: ${MAIL_SCHEME:-null}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}

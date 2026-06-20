@@ -29,12 +29,14 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            $user = User::create([
-                'name' => $account['name'],
-                'email' => $account['email'],
-                'account_type' => AccountType::Organization->value,
-                'password' => Hash::make('password'),
-            ]);
+            $user = User::updateOrCreate(
+                ['email' => $account['email']],
+                [
+                    'name' => $account['name'],
+                    'account_type' => AccountType::Organization->value,
+                    'password' => Hash::make('password'),
+                ],
+            );
 
             $user->assignRole($account['role']);
         }
@@ -42,7 +44,19 @@ class DatabaseSeeder extends Seeder
         // Tenants (Pyramid branches) and their operational demo workers.
         $this->call(TenantSeeder::class);
 
-        // 30 operational workers spread across tenants and roles.
+        // 50 operational workers per tenant (150 total across three branches).
         $this->call(WorkforceSeeder::class);
+
+        // Full facility appendix: rooms, levels, standards, rules, infrastructure.
+        $this->call(PyramidFacilitySeeder::class);
+
+        // Historical event pricing — the pricing agent's training data.
+        $this->call(PricingReferenceSeeder::class);
+
+        // Existing calendar bookings so the scheduling agent has real conflicts.
+        $this->call(ReservationSeeder::class);
+
+        // Events, tasks, and alerts so the operations dashboard has data.
+        $this->call(OperationsDemoSeeder::class);
     }
 }

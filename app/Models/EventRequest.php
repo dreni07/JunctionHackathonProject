@@ -42,6 +42,10 @@ class EventRequest extends Model
         'description',
         'event_type',
         'attendees',
+        'matched_space_id',
+        'price_suggested',
+        'price_agreed',
+        'price_per_sqm',
         'preferred_start_at',
         'preferred_end_at',
         'raw_intake',
@@ -58,6 +62,9 @@ class EventRequest extends Model
         return [
             'event_type' => EventType::class,
             'attendees' => 'integer',
+            'price_suggested' => 'decimal:2',
+            'price_agreed' => 'decimal:2',
+            'price_per_sqm' => 'decimal:2',
             'preferred_start_at' => 'datetime',
             'preferred_end_at' => 'datetime',
             'status' => EventRequestStatus::class,
@@ -94,6 +101,26 @@ class EventRequest extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /**
+     * The venue the matching + scheduling agents settled on.
+     *
+     * @return BelongsTo<Space, $this>
+     */
+    public function matchedSpace(): BelongsTo
+    {
+        return $this->belongsTo(Space::class, 'matched_space_id');
+    }
+
+    /**
+     * Every candidate venue's confidence score for this request.
+     *
+     * @return HasMany<VenueMatch, $this>
+     */
+    public function venueMatches(): HasMany
+    {
+        return $this->hasMany(VenueMatch::class);
     }
 
     /**

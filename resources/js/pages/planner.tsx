@@ -2,14 +2,22 @@ import { Head, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowUp,
+    CalendarClock,
+    Check,
+    Clock,
+    Euro,
     FileText,
     Loader2,
+    MapPin,
     MessageSquare,
     Mic,
     Sparkles,
+    Tag,
+    TriangleAlert,
     Triangle,
     Upload,
     UploadCloud,
+    Users,
     Volume2,
     X,
     type LucideIcon,
@@ -57,6 +65,14 @@ const css = `
 .pl-spin{animation:pl-spin 1s linear infinite}
 @keyframes pl-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 .pl-breathe{animation:pl-breathe 1.4s ease-in-out infinite}
+.pl-ring{position:absolute;inset:0;margin:auto;width:108px;height:108px;border-radius:50%;background:conic-gradient(from 0deg, rgba(16,130,91,0) 0deg, rgba(16,130,91,0) 210deg, ${C.green} 340deg, rgba(16,130,91,0) 360deg);-webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));animation:pl-spin 0.9s linear infinite}
+@keyframes pl-bar{0%,100%{transform:scaleY(0.3)}50%{transform:scaleY(1)}}
+.pl-mic-ping{position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 0 rgba(16,130,91,0.45);animation:pl-micping 1.8s ease-out infinite}
+@keyframes pl-micping{0%{box-shadow:0 0 0 0 rgba(16,130,91,0.4)}100%{box-shadow:0 0 0 22px rgba(16,130,91,0)}}
+@keyframes pl-fade{from{opacity:0}to{opacity:1}}
+@keyframes pl-modal-in{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.pl-modal-bg{animation:pl-fade .2s ease}
+.pl-modal-card{animation:pl-modal-in .26s cubic-bezier(.2,.8,.2,1)}
 `;
 
 type Mode = 'home' | 'voice' | 'chat' | 'upload';
@@ -366,29 +382,45 @@ function Home({ onSelect }: { onSelect: (mode: Mode) => void }) {
     );
 }
 
-function Orb({ size = 92 }: { size?: number }) {
+/* Kleopatra — the agent's avatar, one image per conversation state. */
+const KLEOPATRA = {
+    hello: '/assets/kleopatra-hello.png', // greeting / speaking
+    thinking: '/assets/kleopatra-thinking.png', // deciding what to say
+    listening: '/assets/kleopatra-listening.png', // waiting for you to finish
+};
+
+function kleopatraSrc(phase: ConvoPhase): string {
+    if (phase === 'listening') return KLEOPATRA.listening;
+    if (phase === 'thinking') return KLEOPATRA.thinking;
+
+    return KLEOPATRA.hello; // speaking, idle, error
+}
+
+/** Round Kleopatra portrait used wherever the agent is represented. */
+function Orb({ size = 92, phase }: { size?: number; phase?: ConvoPhase }) {
     return (
         <div style={{ position: 'relative', width: size, height: size }}>
             <div
                 style={{
                     position: 'absolute',
-                    inset: -22,
+                    inset: -16,
                     borderRadius: '50%',
                     background:
-                        'radial-gradient(circle, rgba(16,130,91,0.38), transparent 70%)',
-                    filter: 'blur(18px)',
+                        'radial-gradient(circle, rgba(16,130,91,0.3), transparent 70%)',
+                    filter: 'blur(16px)',
                 }}
             />
-            <div
+            <img
+                src={kleopatraSrc(phase ?? 'idle')}
+                alt="Kleopatra"
                 style={{
                     position: 'relative',
                     width: size,
                     height: size,
                     borderRadius: '50%',
-                    background:
-                        'radial-gradient(circle at 35% 28%, #6FC0A2 0%, #10825B 52%, #0C5A41 100%)',
-                    boxShadow:
-                        'inset 0 -9px 20px rgba(0,0,0,0.28), inset 0 7px 14px rgba(255,255,255,0.5)',
+                    objectFit: 'cover',
+                    border: '2px solid rgba(255,255,255,0.85)',
+                    boxShadow: '0 12px 30px -14px rgba(10,30,20,0.5)',
                 }}
             />
         </div>
@@ -401,19 +433,54 @@ type ConvoPhase = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
 
 type VoiceTurn = { role: 'user' | 'assistant'; content: string };
 
+type EventDetails = {
+    title?: string;
+    event_type?: string;
+    description?: string;
+    attendees?: number;
+    preferred_start_at?: string;
+    preferred_end_at?: string;
+    venue?: {
+        name?: string;
+        room_code?: string;
+        floor?: number;
+        capacity?: number;
+        functional_type?: string;
+        confidence?: number;
+    } | null;
+    pricing?: {
+        price_per_sqm?: number;
+        total?: number;
+        sample_size?: number;
+        basis?: string;
+    } | null;
+    reason?: 'ok' | 'over_capacity' | 'all_booked';
+    max_capacity?: number | null;
+};
+
 function VoiceMode({ onExit }: { onExit: () => void }) {
     const [phase, setPhase] = useState<ConvoPhase>('idle');
     const [turns, setTurns] = useState<VoiceTurn[]>([]);
     const [error, setError] = useState('');
+    const [review, setReview] = useState<EventDetails | null>(null);
+    const [submitted, setSubmitted] = useState<{
+        id: string;
+        status: string;
+        price?: number | null;
+    } | null>(null);
+    const [ended, setEnded] = useState(false);
+    const [reviewOpen, setReviewOpen] = useState(false);
 
     const activeRef = useRef(false);
+    const pendingEndRef = useRef(false);
     const streamRef = useRef<MediaStream | null>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const recorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const vadRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const audioElRef = useRef<HTMLAudioElement | null>(null);
+    const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const fallbackAudioRef = useRef<HTMLAudioElement | null>(null);
     const historyRef = useRef<VoiceTurn[]>([]);
     const mimeRef = useRef<{ type: string; ext: string }>({
         type: '',
@@ -501,7 +568,9 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         };
         recorder.start();
 
-        const SILENCE_MS = 1000;
+        // Wait this long after you stop talking before the agent replies, so
+        // you have room to pause and breathe mid-thought.
+        const SILENCE_MS = 4500;
         const MAX_MS = 30000;
         const THRESHOLD = 0.02;
         const turnStart = performance.now();
@@ -530,6 +599,9 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
     const transcribe = async (blob: Blob): Promise<string> => {
         const form = new FormData();
         form.append('audio', blob, `speech.${mimeRef.current.ext}`);
+        // Pin the language so Whisper doesn't mis-detect short clips as
+        // Arabic/another language and "transcribe" English into the wrong script.
+        form.append('language', 'en');
         const response = await postForm('/speech/transcribe', form);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -538,8 +610,15 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         return String(data.text || '');
     };
 
-    const agentReply = async (history: VoiceTurn[]): Promise<string> => {
-        const response = await postJson('/chat', {
+    const agentTurn = async (
+        history: VoiceTurn[],
+    ): Promise<{
+        reply: string;
+        review: EventDetails | null;
+        submitted: { id: string; status: string; price?: number | null } | null;
+        ended: boolean;
+    }> => {
+        const response = await postJson('/planner/agent', {
             messages: history.map((turn) => ({
                 role: turn.role,
                 content: turn.content,
@@ -549,7 +628,22 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         if (!response.ok) {
             throw new Error(data.message || 'Agent error.');
         }
-        return String(data.reply || '');
+        return {
+            reply: String(data.reply || ''),
+            review: data.review ?? null,
+            submitted: data.submitted ?? null,
+            ended: Boolean(data.ended),
+        };
+    };
+
+    // After the agent finishes speaking, either hang up (if the agent chose to
+    // end the call) or go back to listening.
+    const afterSpeak = () => {
+        if (pendingEndRef.current) {
+            finishCall();
+        } else {
+            resumeListening();
+        }
     };
 
     const speak = async (text: string): Promise<void> => {
@@ -560,23 +654,48 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                 text: text.slice(0, 4000),
             });
             if (!response.ok) {
-                resumeListening();
+                afterSpeak();
                 return;
             }
-            const url = URL.createObjectURL(await response.blob());
+
+            const bytes = await response.arrayBuffer();
+            const ctx = audioCtxRef.current;
+
+            // Play through the AudioContext the user's click already unlocked.
+            // It's exempt from the HTMLAudioElement autoplay block that was
+            // silently swallowing playback after the STT/LLM round-trip.
+            if (ctx) {
+                try {
+                    if (ctx.state === 'suspended') await ctx.resume();
+                    const buffer = await ctx.decodeAudioData(bytes.slice(0));
+                    const source = ctx.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(ctx.destination);
+                    source.onended = () => afterSpeak();
+                    sourceRef.current = source;
+                    source.start();
+                    return;
+                } catch {
+                    // fall through to the HTMLAudio fallback
+                }
+            }
+
+            const url = URL.createObjectURL(
+                new Blob([bytes], { type: 'audio/mpeg' }),
+            );
             const audio = new Audio(url);
-            audioElRef.current = audio;
+            fallbackAudioRef.current = audio;
             audio.onended = () => {
                 URL.revokeObjectURL(url);
-                resumeListening();
+                afterSpeak();
             };
             audio.onerror = () => {
                 URL.revokeObjectURL(url);
-                resumeListening();
+                afterSpeak();
             };
-            await audio.play().catch(() => resumeListening());
+            await audio.play().catch(() => afterSpeak());
         } catch {
-            resumeListening();
+            afterSpeak();
         }
     };
 
@@ -609,7 +728,20 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
 
         let reply = '';
         try {
-            reply = (await agentReply(withUser)).trim();
+            const result = await agentTurn(withUser);
+            reply = result.reply.trim();
+            if (result.submitted) {
+                setSubmitted(result.submitted);
+                setReview(null);
+                setReviewOpen(false);
+            } else if (result.review) {
+                setReview(result.review);
+                setReviewOpen(true);
+            }
+            // The agent chose to hang up — end the call after this farewell.
+            if (result.ended) {
+                pendingEndRef.current = true;
+            }
         } catch {
             reply = '';
         }
@@ -630,6 +762,11 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
     const begin = async () => {
         setError('');
         setTurns([]);
+        setReview(null);
+        setReviewOpen(false);
+        setSubmitted(null);
+        setEnded(false);
+        pendingEndRef.current = false;
         historyRef.current = [];
         mimeRef.current = pickMime();
         try {
@@ -672,7 +809,16 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                 // already stopped
             }
         }
-        audioElRef.current?.pause();
+        if (sourceRef.current) {
+            try {
+                sourceRef.current.onended = null;
+                sourceRef.current.stop();
+            } catch {
+                // already stopped
+            }
+            sourceRef.current = null;
+        }
+        fallbackAudioRef.current?.pause();
         streamRef.current?.getTracks().forEach((track) => track.stop());
         void audioCtxRef.current?.close().catch(() => {});
         streamRef.current = null;
@@ -681,9 +827,23 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         setPhase('idle');
     };
 
-    useEffect(() => {
-        void begin();
+    // The agent hung up: tear everything down and show the wrap-up screen.
+    const finishCall = () => {
+        pendingEndRef.current = false;
+        end();
+        setEnded(true);
+    };
 
+    useEffect(() => {
+        // Preload Kleopatra's three faces so switching states is instant.
+        Object.values(KLEOPATRA).forEach((src) => {
+            const img = new Image();
+            img.src = src;
+        });
+    }, []);
+
+    useEffect(() => {
+        // Don't auto-start — the user taps the mic to begin. Just clean up.
         return () => end();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -694,6 +854,60 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
             behavior: 'smooth',
         });
     }, [turns, phase]);
+
+    if (ended) {
+        return (
+            <div
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 18,
+                    padding: 24,
+                }}
+            >
+                <span
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 84,
+                        height: 84,
+                        borderRadius: '50%',
+                        background: C.greenTint,
+                        color: C.green,
+                    }}
+                >
+                    <Check size={38} />
+                </span>
+                <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 19, fontWeight: 700 }}>
+                        The planner wrapped up the call
+                    </p>
+                    <p
+                        style={{
+                            marginTop: 6,
+                            fontSize: 14.5,
+                            color: C.muted,
+                            maxWidth: 360,
+                        }}
+                    >
+                        Everything's been taken care of. You can start a new
+                        conversation whenever you like.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onExit}
+                    style={primaryButton()}
+                >
+                    Back to start
+                </button>
+            </div>
+        );
+    }
 
     if (phase === 'error' && !activeRef.current) {
         return (
@@ -729,13 +943,97 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         );
     }
 
+    if (!activeRef.current && phase === 'idle') {
+        return (
+            <div
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 20,
+                    padding: 24,
+                }}
+            >
+                <button
+                    type="button"
+                    onClick={() => void begin()}
+                    aria-label="Start the conversation"
+                    className="pl-card"
+                    style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 120,
+                        height: 120,
+                        borderRadius: '50%',
+                        padding: 0,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: 'transparent',
+                    }}
+                >
+                    <img
+                        src={KLEOPATRA.hello}
+                        alt="Kleopatra"
+                        style={{
+                            width: 120,
+                            height: 120,
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '3px solid #fff',
+                            boxShadow:
+                                '0 20px 44px -18px rgba(16,130,91,0.6)',
+                        }}
+                    />
+                    <span
+                        style={{
+                            position: 'absolute',
+                            right: 4,
+                            bottom: 4,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            background: C.green,
+                            color: '#fff',
+                            border: '3px solid #fff',
+                        }}
+                    >
+                        <Mic size={16} />
+                    </span>
+                </button>
+                <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 19, fontWeight: 700 }}>
+                        Ready when you are
+                    </p>
+                    <p
+                        style={{
+                            marginTop: 6,
+                            fontSize: 14.5,
+                            color: C.muted,
+                            maxWidth: 340,
+                        }}
+                    >
+                        Tap the microphone and tell me about the event you'd like
+                        to organize.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     const statusLabel =
         phase === 'listening'
-            ? 'Listening…'
+            ? "Listening — I'm all ears"
             : phase === 'thinking'
               ? 'Thinking…'
               : phase === 'speaking'
-                ? 'Speaking…'
+                ? 'Planner is speaking'
                 : 'Connecting…';
 
     return (
@@ -766,45 +1064,81 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                             key={delay}
                             style={{
                                 position: 'absolute',
-                                inset: 26,
+                                inset: 14,
                                 borderRadius: '50%',
-                                background: 'rgba(16,130,91,0.32)',
+                                background: 'rgba(16,130,91,0.3)',
                                 animation: `pl-pulse 2.2s ease-out ${delay}s infinite`,
                             }}
                         />
                     ))}
+                {phase === 'thinking' && <span className="pl-ring" />}
                 <span
-                    className={phase === 'speaking' ? 'pl-breathe' : undefined}
+                    className={
+                        phase === 'speaking' || phase === 'thinking'
+                            ? 'pl-breathe'
+                            : undefined
+                    }
                     style={{
                         position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: 88,
-                        height: 88,
+                        width: 104,
+                        height: 104,
                         borderRadius: '50%',
-                        background: `radial-gradient(circle at 35% 28%, #6FC0A2 0%, ${C.green} 52%, #0C5A41 100%)`,
-                        color: '#fff',
-                        boxShadow:
-                            'inset 0 -8px 18px rgba(0,0,0,0.28), inset 0 6px 12px rgba(255,255,255,0.45)',
                     }}
                 >
-                    {phase === 'thinking' ? (
-                        <Loader2 className="pl-spin" size={30} />
-                    ) : phase === 'speaking' ? (
-                        <Volume2 size={30} />
-                    ) : (
-                        <Mic size={30} />
-                    )}
+                    {phase === 'listening' && <span className="pl-mic-ping" />}
+                    <img
+                        src={kleopatraSrc(phase)}
+                        alt="Kleopatra"
+                        style={{
+                            width: 104,
+                            height: 104,
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '2px solid rgba(255,255,255,0.9)',
+                            boxShadow: '0 14px 32px -16px rgba(10,30,20,0.55)',
+                        }}
+                    />
                 </span>
             </div>
 
-            <p style={{ marginTop: 18, fontSize: 17, fontWeight: 600 }}>
-                {statusLabel}
-            </p>
+            {(phase === 'listening' || phase === 'speaking') && (
+                <SoundBars />
+            )}
+
+            {phase === 'thinking' ? (
+                <div
+                    style={{
+                        marginTop: 18,
+                        height: 24,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                    }}
+                >
+                    {[0, 0.18, 0.36].map((d) => (
+                        <span
+                            key={d}
+                            style={{
+                                width: 9,
+                                height: 9,
+                                borderRadius: '50%',
+                                background: C.green,
+                                animation: `pl-blink 1s ${d}s infinite`,
+                            }}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <p style={{ marginTop: 18, fontSize: 17, fontWeight: 600 }}>
+                    {statusLabel}
+                </p>
+            )}
             <p
                 style={{
-                    marginTop: 4,
+                    marginTop: 6,
                     fontSize: 13,
                     color: C.faint,
                     minHeight: 18,
@@ -814,12 +1148,65 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                     ? 'Mic muted while I speak'
                     : phase === 'listening'
                       ? 'Just talk — I’ll reply when you pause'
-                      : ' '}
+                      : phase === 'thinking'
+                        ? 'Putting your reply together'
+                        : ' '}
             </p>
             {error !== '' && (
                 <p style={{ marginTop: 4, fontSize: 13, color: C.danger }}>
                     {error}
                 </p>
+            )}
+
+            {submitted ? (
+                <div
+                    style={{
+                        width: '100%',
+                        maxWidth: 620,
+                        marginTop: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '16px 18px',
+                        borderRadius: 16,
+                        border: `1px solid ${C.greenTint}`,
+                        background: 'rgba(16,130,91,0.06)',
+                    }}
+                >
+                    <span
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            background: C.green,
+                            color: '#fff',
+                            flex: 'none',
+                        }}
+                    >
+                        <Check size={20} />
+                    </span>
+                    <div>
+                        <p style={{ fontWeight: 700 }}>
+                            Event request submitted
+                            {submitted.price != null
+                                ? ` · €${Math.round(submitted.price).toLocaleString()}`
+                                : ''}
+                        </p>
+                        <p style={{ fontSize: 13, color: C.muted }}>
+                            Reference {submitted.id}
+                        </p>
+                    </div>
+                </div>
+            ) : null}
+
+            {reviewOpen && review && !submitted && (
+                <ReviewModal
+                    review={review}
+                    onClose={() => setReviewOpen(false)}
+                />
             )}
 
             <div
@@ -1407,6 +1794,400 @@ function UploadMode() {
 }
 
 /* ============================ shared button styles ============================ */
+
+function SoundBars() {
+    const bars = [0, 1, 2, 3, 4, 5, 6];
+
+    return (
+        <div
+            style={{
+                marginTop: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                height: 28,
+            }}
+        >
+            {bars.map((i) => (
+                <span
+                    key={i}
+                    style={{
+                        width: 4,
+                        height: 28,
+                        borderRadius: 2,
+                        background: C.green,
+                        transformOrigin: 'center',
+                        animation: `pl-bar ${0.7 + (i % 3) * 0.18}s ease-in-out ${i * 0.11}s infinite`,
+                    }}
+                />
+            ))}
+        </div>
+    );
+}
+
+function ReviewModal({
+    review,
+    onClose,
+}: {
+    review: EventDetails;
+    onClose: () => void;
+}) {
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKey);
+
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    const hasVenue = !!review.venue;
+
+    const items: { icon: LucideIcon; label: string; value: string }[] = [
+        {
+            icon: Tag,
+            label: 'Event type',
+            value: formatEventType(review.event_type) ?? '—',
+        },
+        {
+            icon: CalendarClock,
+            label: 'Starts',
+            value: formatDateTime(review.preferred_start_at) ?? '—',
+        },
+        {
+            icon: Clock,
+            label: 'Ends',
+            value: formatDateTime(review.preferred_end_at) ?? '—',
+        },
+        {
+            icon: Users,
+            label: 'Attendees',
+            value:
+                review.attendees != null
+                    ? `${review.attendees} people`
+                    : '—',
+        },
+    ];
+
+    if (review.venue) {
+        items.push({
+            icon: MapPin,
+            label: 'Venue',
+            value: `${review.venue.name}${
+                review.venue.capacity ? ` · holds ${review.venue.capacity}` : ''
+            }${
+                review.venue.confidence != null
+                    ? ` · ${review.venue.confidence}% match`
+                    : ''
+            }`,
+        });
+    }
+    if (review.pricing) {
+        items.push({
+            icon: Euro,
+            label: 'Suggested price',
+            value: `€${Math.round(review.pricing.total ?? 0).toLocaleString()}${
+                review.pricing.price_per_sqm != null
+                    ? ` · €${review.pricing.price_per_sqm}/m²`
+                    : ''
+            }`,
+        });
+    }
+    if (review.description) {
+        items.push({
+            icon: FileText,
+            label: 'About',
+            value: review.description,
+        });
+    }
+
+    return (
+        <div
+            className="pl-modal-bg"
+            onClick={onClose}
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 50,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20,
+                background: 'rgba(18,20,18,0.55)',
+                backdropFilter: 'blur(3px)',
+            }}
+        >
+            <div
+                className="pl-modal-card"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    width: '100%',
+                    maxWidth: 460,
+                    maxHeight: '86vh',
+                    overflowY: 'auto',
+                    background: C.card,
+                    borderRadius: 24,
+                    boxShadow: '0 40px 90px -30px rgba(10,20,15,0.6)',
+                    padding: '26px 26px 22px',
+                }}
+            >
+                {/* Header */}
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        marginBottom: 22,
+                    }}
+                >
+                    <div>
+                        <p
+                            style={{
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                color: C.green,
+                                marginBottom: 6,
+                            }}
+                        >
+                            Review your event request
+                        </p>
+                        <h2
+                            style={{
+                                fontSize: 23,
+                                fontWeight: 800,
+                                letterSpacing: '-0.02em',
+                                lineHeight: 1.15,
+                            }}
+                        >
+                            {review.title || 'Your event'}
+                        </h2>
+                    </div>
+                    <button
+                        type="button"
+                        className="pl-ghost"
+                        onClick={onClose}
+                        aria-label="Back to the agent"
+                        style={{
+                            flex: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 34,
+                            height: 34,
+                            borderRadius: 10,
+                            border: `1px solid ${C.border}`,
+                            background: C.card,
+                            color: C.muted,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <X size={17} />
+                    </button>
+                </div>
+
+                {/* Timeline */}
+                <div>
+                    {items.map((item, index) => {
+                        const last = index === items.length - 1;
+
+                        return (
+                            <div
+                                key={item.label}
+                                style={{ display: 'flex', gap: 14 }}
+                            >
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: 38,
+                                            height: 38,
+                                            flex: 'none',
+                                            borderRadius: 11,
+                                            background: C.greenTint,
+                                            color: C.green,
+                                        }}
+                                    >
+                                        <item.icon size={18} />
+                                    </span>
+                                    {!last && (
+                                        <span
+                                            style={{
+                                                flex: 1,
+                                                width: 2,
+                                                background: C.borderSoft,
+                                                marginTop: 4,
+                                                marginBottom: 4,
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                                <div
+                                    style={{
+                                        paddingBottom: last ? 0 : 18,
+                                        paddingTop: 3,
+                                        minWidth: 0,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            fontSize: 11.5,
+                                            fontWeight: 600,
+                                            letterSpacing: '0.04em',
+                                            textTransform: 'uppercase',
+                                            color: C.faint,
+                                        }}
+                                    >
+                                        {item.label}
+                                    </div>
+                                    <div
+                                        style={{
+                                            fontSize: 15.5,
+                                            fontWeight: 500,
+                                            color: C.ink,
+                                            marginTop: 2,
+                                            lineHeight: 1.45,
+                                        }}
+                                    >
+                                        {item.value}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Footer */}
+                {hasVenue ? (
+                    <div
+                        style={{
+                            marginTop: 8,
+                            padding: '12px 14px',
+                            borderRadius: 12,
+                            background: 'rgba(16,130,91,0.07)',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: C.green,
+                            textAlign: 'center',
+                        }}
+                    >
+                        Say “send the event request” to confirm, or tell the
+                        planner what to change.
+                    </div>
+                ) : (
+                    <div
+                        style={{
+                            marginTop: 8,
+                            display: 'flex',
+                            gap: 10,
+                            padding: '12px 14px',
+                            borderRadius: 12,
+                            background:
+                                review.reason === 'over_capacity'
+                                    ? 'rgba(180,69,58,0.08)'
+                                    : 'rgba(138,109,28,0.1)',
+                            color:
+                                review.reason === 'over_capacity'
+                                    ? C.danger
+                                    : '#8A6D1C',
+                        }}
+                    >
+                        <TriangleAlert size={17} style={{ flex: 'none' }} />
+                        <span style={{ fontSize: 13, lineHeight: 1.5 }}>
+                            {review.reason === 'over_capacity'
+                                ? `No single space fits ${review.attendees} people${
+                                      review.max_capacity
+                                          ? ` — the largest holds about ${review.max_capacity}`
+                                          : ''
+                                  }. Try a smaller guest count, or split it across days.`
+                                : 'Every suitable space is booked at that time. Try a different day or time.'}
+                        </span>
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    className="pl-ghost"
+                    onClick={onClose}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        width: '100%',
+                        marginTop: 16,
+                        padding: '12px 20px',
+                        borderRadius: 12,
+                        border: `1px solid ${C.border}`,
+                        background: C.card,
+                        color: C.ink,
+                        fontSize: 15,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                    }}
+                >
+                    <ArrowLeft size={16} />
+                    Back to the agent
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function DetailRow({ label, value }: { label: string; value?: string }) {
+    if (!value) {
+        return null;
+    }
+
+    return (
+        <div style={{ display: 'flex', gap: 12, padding: '5px 0', fontSize: 14 }}>
+            <span style={{ width: 84, flex: 'none', color: C.faint }}>
+                {label}
+            </span>
+            <span style={{ color: C.ink }}>{value}</span>
+        </div>
+    );
+}
+
+function formatEventType(value?: string): string | undefined {
+    if (!value) {
+        return undefined;
+    }
+
+    return value
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatDateTime(value?: string): string | undefined {
+    if (!value) {
+        return undefined;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
 
 function primaryButton(disabled = false): React.CSSProperties {
     return {

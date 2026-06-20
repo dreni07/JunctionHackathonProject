@@ -4,6 +4,7 @@ namespace App\Actions\Fortify;
 
 use App\Enums\AccountType;
 use App\Enums\RoleName;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -16,9 +17,8 @@ class CreateNewUser implements CreatesNewUsers
     /**
      * Validate and create a newly registered user.
      *
-     * Sign-up only ever creates a normal organization account (an external
-     * party that wants to organize events). The display name is derived from
-     * the email, so the form only asks for email, phone, and password.
+     * Public sign-up always creates an external organization account.
+     * Operational workers are provisioned separately — never through this form.
      *
      * @param  array<string, string>  $input
      */
@@ -28,21 +28,31 @@ class CreateNewUser implements CreatesNewUsers
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
             'phone' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'string', Password::default()],
+            'account_type' => ['prohibited'],
+            'tenant_id' => ['prohibited'],
+            'worker_role' => ['prohibited'],
         ])->validate();
 
         $name = isset($input['name']) && trim((string) $input['name']) !== ''
             ? trim((string) $input['name'])
             : Str::of($input['email'])->before('@')->replace(['.', '_', '-'], ' ')->title()->toString();
 
+        $organization = Organization::query()->create([
+            'name' => $name,
+        ]);
+
         $user = User::create([
             'name' => $name,
             'email' => $input['email'],
             'phone' => $input['phone'] ?? null,
             'password' => $input['password'],
+            'organization_id' => $organization->id,
             'account_type' => AccountType::Organization->value,
+            'tenant_id' => null,
+            'worker_role' => null,
         ]);
 
-        $user->assignRole(RoleName::Organizer);
+        $user->syncRoles(RoleName::Organizer);
 
         return $user;
     }
