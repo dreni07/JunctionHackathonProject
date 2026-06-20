@@ -22,6 +22,7 @@ sync_env() {
 }
 
 for var in \
+    APP_NAME \
     APP_URL \
     DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD \
     GROQ_API_KEY GROQ_MODEL \

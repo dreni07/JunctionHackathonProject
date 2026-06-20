@@ -5,7 +5,9 @@ namespace App\Actions\Fortify;
 use App\Enums\AccountType;
 use App\Enums\RoleName;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -52,8 +54,24 @@ class CreateNewUser implements CreatesNewUsers
             'worker_role' => null,
         ]);
 
+        $user->markEmailAsVerified();
+
+        $this->ensureOrganizerRoleExists();
+
         $user->syncRoles(RoleName::Organizer);
 
         return $user;
+    }
+
+    /**
+     * Registration assigns the organizer role — seed RBAC if this is a fresh DB.
+     */
+    private function ensureOrganizerRoleExists(): void
+    {
+        if (Role::query()->where('name', RoleName::Organizer->value)->exists()) {
+            return;
+        }
+
+        app(RolePermissionSeeder::class)->run();
     }
 }

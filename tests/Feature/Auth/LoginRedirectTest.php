@@ -29,6 +29,23 @@ test('organization accounts redirect to planner after login', function (): void 
     expect(auth()->user()?->account_type)->toBe(AccountType::Organization);
 });
 
+test('unverified organization accounts can open the planner after login', function (): void {
+    $user = User::factory()->organization()->unverified()->create([
+        'email' => 'pending@example.com',
+    ]);
+    $user->syncRoles(RoleName::Organizer);
+
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])
+        ->assertRedirect(route('planner', absolute: false));
+
+    $this->actingAs($user)
+        ->get(route('planner'))
+        ->assertOk();
+});
+
 test('operational workers redirect to operations after login', function (): void {
     $worker = User::factory()->operational()->create([
         'email' => 'worker@pyramid.test',

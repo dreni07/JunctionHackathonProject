@@ -6,8 +6,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\VerifyEmailCodeRequest;
-use App\Models\User;
 use App\Services\EmailVerificationCodeService;
+use App\Support\AuthRedirect;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
@@ -24,7 +24,7 @@ class VerifyEmailCodeController extends Controller
         $user = $request->user();
 
         if ($user->hasVerifiedEmail()) {
-            return redirect()->intended($this->homeFor($user));
+            return redirect()->intended(AuthRedirect::homeFor($user));
         }
 
         if (! $this->verificationCodes->verify($user, $request->validated('code'))) {
@@ -37,15 +37,6 @@ class VerifyEmailCodeController extends Controller
             event(new Verified($user));
         }
 
-        return redirect()->intended($this->homeFor($user).'?verified=1');
-    }
-
-    private function homeFor(User $user): string
-    {
-        if ($user->isOperational()) {
-            return route('operations.home', absolute: false);
-        }
-
-        return route('planner', absolute: false);
+        return redirect()->intended(AuthRedirect::homeFor($user).'?verified=1');
     }
 }

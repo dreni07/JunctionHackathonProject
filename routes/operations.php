@@ -22,7 +22,7 @@ use App\Http\Controllers\Operations\TenantWorkerController;
 use App\Http\Controllers\Operations\VenueMapController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', 'operational'])
+Route::middleware(['auth', 'operational'])
     ->prefix('operations')
     ->name('operations.')
     ->group(function (): void {
