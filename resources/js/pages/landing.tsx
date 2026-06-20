@@ -58,7 +58,30 @@ body{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;ba
 .cta-btn-secondary{position:relative;display:inline-flex;align-items:center;gap:10px;padding:18px 36px;border-radius:999px;background:transparent;color:#fff;font-family:'Hanken Grotesk',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.14em;text-transform:uppercase;border:1.5px solid rgba(255,255,255,0.72);cursor:pointer;transition:color .35s ease,transform .4s cubic-bezier(.2,.8,.2,1),box-shadow .4s ease,border-color .35s ease,background .35s ease}
 .cta-btn-secondary:hover{color:#10231A;background:#F4F3EE;border-color:#F4F3EE;transform:translateY(-4px);box-shadow:0 18px 40px -14px rgba(0,0,0,0.45)}
 .cta-btn-secondary:active{transform:translateY(-1px) scale(0.99)}
-.hero-cta-row{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.hero-cta-row{display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;gap:14px;width:100%;max-width:100%}
+@media (max-width:680px){
+  .hero-cta-row{gap:10px;padding:0 2px}
+  .hero-cta-row .cta-btn,
+  .hero-cta-row .cta-btn-secondary{
+    flex:1 1 0;
+    min-width:0;
+    justify-content:center;
+    padding:13px 16px;
+    font-size:11px;
+    letter-spacing:0.08em;
+    gap:6px;
+    white-space:nowrap;
+  }
+  .hero-cta-row .cta-btn .arrow{font-size:14px}
+}
+@media (max-width:380px){
+  .hero-cta-row .cta-btn,
+  .hero-cta-row .cta-btn-secondary{
+    padding:11px 10px;
+    font-size:10px;
+    letter-spacing:0.06em;
+  }
+}
 
 /* Hover behaviours ported from style-hover */
 .nav-link:hover{color:#fff}
