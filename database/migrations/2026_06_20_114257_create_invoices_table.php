@@ -20,7 +20,7 @@ return new class extends Migration
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('event_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignUuid('final_proposal_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('organization_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignUuid('organization_id')->nullable()->constrained()->nullOnDelete();
             $table->string('reference')->unique();
             $table->string('title');
             $table->decimal('amount', 14, 2);
