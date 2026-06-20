@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Camera, Loader2, Triangle } from 'lucide-react';
+import { ArrowLeft, Camera, Loader2 } from 'lucide-react';
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import BrandLogo from '@/components/brand-logo';
 
 const C = {
     cream: '#F4F3EE',
@@ -204,33 +205,11 @@ export default function ProfileComplete({
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 11,
                             textDecoration: 'none',
                             color: C.ink,
                         }}
                     >
-                        <span
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 34,
-                                height: 34,
-                                borderRadius: 10,
-                                background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-                            }}
-                        >
-                            <Triangle size={15} fill="#fff" color="#fff" />
-                        </span>
-                        <span
-                            style={{
-                                fontWeight: 800,
-                                letterSpacing: '0.05em',
-                                fontSize: 14,
-                            }}
-                        >
-                            PIRAMIDA
-                        </span>
+                        <BrandLogo height={34} />
                     </Link>
                     <span
                         style={{

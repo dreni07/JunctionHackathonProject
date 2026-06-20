@@ -9,6 +9,7 @@ use App\Agent\Neuron\SchedulingAgent;
 use App\Agent\Neuron\ToolResultCollector;
 use App\Agent\Neuron\VenueMatchingAgent;
 use App\Models\Space;
+use Carbon\CarbonImmutable;
 use NeuronAI\Chat\Messages\UserMessage;
 use NeuronAI\Observability\Events\ToolCalled;
 use NeuronAI\Observability\ObserverInterface;
@@ -70,6 +71,46 @@ class VenueOrchestrator
             // A fitting venue exists, but every one is already booked then.
             'reason' => $selected !== null ? 'ok' : 'all_booked',
             'max_capacity' => null,
+            // If the best-fit venue is blocked / out of service, say so — even
+            // when something else was selected.
+            'top_unavailable' => $this->topUnavailable($ranked, $selectedId, $startAt, $endAt),
+        ];
+    }
+
+    /**
+     * When the highest-confidence venue can't be used because it's blocked or
+     * out of service, describe it so the agent can tell the organizer why.
+     *
+     * @param  list<array<string, mixed>>  $ranked
+     * @return array{name: string, type: string, reason: string, describe: string, note: string|null}|null
+     */
+    private function topUnavailable(array $ranked, ?string $selectedId, string $startAt, string $endAt): ?array
+    {
+        $top = $ranked[0] ?? null;
+
+        if ($top === null || ($selectedId !== null && $top['space_id'] === $selectedId)) {
+            return null;
+        }
+
+        try {
+            $start = CarbonImmutable::parse($startAt);
+            $end = CarbonImmutable::parse($endAt);
+        } catch (Throwable) {
+            return null;
+        }
+
+        $unavailability = $this->scheduling->unavailabilityFor((string) $top['space_id'], $start, $end);
+
+        if ($unavailability === null) {
+            return null;
+        }
+
+        return [
+            'name' => (string) ($top['name'] ?? 'the best-fit venue'),
+            'type' => $unavailability->type->value,
+            'reason' => $unavailability->type->organizerReason(),
+            'describe' => $unavailability->describe(),
+            'note' => $unavailability->reason,
         ];
     }
 

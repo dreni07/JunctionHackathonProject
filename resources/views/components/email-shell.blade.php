@@ -20,6 +20,7 @@
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #E0DCD3;">
                     <tr>
                         <td style="background:linear-gradient(135deg,{{ $accent }},{{ $accentDark }});padding:26px 30px;">
+                            <img src="{{ asset('assets/piramida-tiranes-logo.svg') }}" alt="Piramida e Tiranës" style="height:52px;width:auto;display:block;margin-bottom:14px;background:transparent;">
                             <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.82);">
                                 {{ $eyebrow }}
                             </div>

@@ -181,6 +181,14 @@ class ApiTool implements Tool
                     .'or day.';
             }
 
+            $topUnavailable = $recommendation['top_unavailable'] ?? null;
+            if (is_array($topUnavailable)) {
+                return 'Reasoning: the best-fit space, '.$topUnavailable['name'].', could not be used because '
+                    .$topUnavailable['reason'].' ('.$topUnavailable['describe'].')'
+                    .($topUnavailable['note'] ? ' — '.$topUnavailable['note'] : '').', and the other suitable spaces '
+                    .'are booked at that time. Tell the organizer this honestly and ask for a different day or time.';
+            }
+
             return 'Reasoning: venues of the right size exist, but every one of them is already booked for '
                 .'that exact date and time. Explain that the suitable spaces are taken then, and ask the user '
                 .'for a different day or time.';
@@ -214,7 +222,17 @@ class ApiTool implements Tool
         // screen can light up exactly where in the Pyramid the venue sits.
         $venue = $this->withMapLocation($venue);
 
-        $this->review = [...$data, 'venue' => $venue, 'pricing' => $pricing, 'reason' => 'ok'];
+        // The single best-fit venue may be blocked / out of service — name it so
+        // we can be transparent about why we picked the next one instead.
+        $topUnavailable = $recommendation['top_unavailable'] ?? null;
+
+        $this->review = [
+            ...$data,
+            'venue' => $venue,
+            'pricing' => $pricing,
+            'reason' => 'ok',
+            'top_unavailable' => $topUnavailable,
+        ];
 
         $priceLine = $pricing !== null
             ? ($agreed
@@ -223,10 +241,18 @@ class ApiTool implements Tool
                     .' (€'.number_format($pricing['price_per_sqm'], 2).' per square metre), based on similar past events.')
             : '';
 
+        $unavailableLine = '';
+        if (is_array($topUnavailable)) {
+            $unavailableLine = ' IMPORTANT: the best-fit space, '.$topUnavailable['name'].', could NOT be used because '
+                .$topUnavailable['reason'].' ('.$topUnavailable['describe'].')'
+                .($topUnavailable['note'] ? ' — '.$topUnavailable['note'] : '').'. You MUST tell the organizer this '
+                .'honestly: the ideal room is unavailable for that reason, so you recommended '.$venue['name'].' instead.';
+        }
+
         return 'Reasoning: this venue holds '.($venue['capacity'] ?? '?').' and the event expects '
             .$data['attendees'].' people, so it fits (match confidence '.$venue['confidence'].'%). The updated event '
             .'summary, the recommended venue ('.$venue['name'].') and the price are now on the '
-            .'user\'s screen.'.$priceLine.' Warmly read back what changed, then ask them to confirm out loud '
+            .'user\'s screen.'.$priceLine.$unavailableLine.' Warmly read back what changed, then ask them to confirm out loud '
             .'(e.g. "send the event request") before you submit it.';
     }
 

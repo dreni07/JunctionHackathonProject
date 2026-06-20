@@ -55,7 +55,8 @@ return [
         // Text-to-speech (POST /audio/speech).
         'tts' => [
             'model' => env('OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
-            'voice' => env('OPENAI_TTS_VOICE', 'alloy'),
+            // Cleopatra speaks with a warm female voice ("shimmer").
+            'voice' => env('OPENAI_TTS_VOICE', 'shimmer'),
             'format' => env('OPENAI_TTS_FORMAT', 'mp3'),
         ],
 

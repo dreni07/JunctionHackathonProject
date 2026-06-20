@@ -19,6 +19,7 @@ use App\Http\Controllers\Operations\SpaceController;
 use App\Http\Controllers\Operations\TaskController;
 use App\Http\Controllers\Operations\TenantFinanceController;
 use App\Http\Controllers\Operations\TenantWorkerController;
+use App\Http\Controllers\Operations\VenueMapController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'operational'])
@@ -52,6 +53,11 @@ Route::middleware(['auth', 'operational'])
         Route::get('manage-boring-things', [EmailController::class, 'index'])->name('manage-boring-things');
         Route::post('emails/generate', [EmailController::class, 'generate'])->name('emails.generate');
         Route::post('emails/send', [EmailController::class, 'send'])->name('emails.send');
+
+        // Floor Explorer: browse floors, click a venue, block / mark out of service.
+        Route::get('venue-map', [VenueMapController::class, 'index'])->name('venue-map');
+        Route::post('venue-map/spaces/{space}/unavailability', [VenueMapController::class, 'storeUnavailability'])->name('venue-map.unavailability.store');
+        Route::delete('venue-map/spaces/{space}/unavailability/{unavailability}', [VenueMapController::class, 'destroyUnavailability'])->name('venue-map.unavailability.destroy');
 
         Route::get('map-calibration', [MapCalibrationController::class, 'index'])->name('map-calibration');
         Route::post('map-calibration/plan', [MapCalibrationController::class, 'uploadPlan'])->name('map-calibration.plan');
@@ -111,5 +117,6 @@ Route::middleware(['auth', 'operational'])
             Route::patch('finance/profile', [TenantFinanceController::class, 'updateProfile'])->name('finance.profile.update');
             Route::post('finance/payments', [TenantFinanceController::class, 'storePayment'])->name('finance.payments.store');
             Route::post('finance/expenses', [TenantFinanceController::class, 'storeExpense'])->name('finance.expenses.store');
+            Route::get('finance/expenses/export', [TenantFinanceController::class, 'exportExpenses'])->name('finance.expenses.export');
         });
     });

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import AppLogoIcon from '@/components/app-logo-icon';
+import BrandLogo from '@/components/brand-logo';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
@@ -39,12 +39,9 @@ export default function AuthSplitLayout({
                 {/* Top: wordmark */}
                 <Link
                     href={home()}
-                    className="relative z-10 flex items-center gap-3 text-lg font-semibold tracking-tight"
+                    className="relative z-10 flex items-center"
                 >
-                    <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15 backdrop-blur">
-                        <AppLogoIcon className="size-5 fill-current text-white" />
-                    </span>
-                    {name}
+                    <BrandLogo height={44} />
                 </Link>
 
                 {/* Middle: pitch */}
@@ -95,12 +92,9 @@ export default function AuthSplitLayout({
                     {/* Mobile logo */}
                     <Link
                         href={home()}
-                        className="mb-8 flex items-center justify-center gap-2 lg:hidden"
+                        className="mb-8 flex items-center justify-center lg:hidden"
                     >
-                        <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10">
-                            <AppLogoIcon className="size-5 fill-current text-primary" />
-                        </span>
-                        <span className="font-semibold">{name}</span>
+                        <BrandLogo height={40} />
                     </Link>
 
                     <div className="mb-8 flex flex-col gap-2">

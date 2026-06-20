@@ -191,8 +191,9 @@ class TaskPlanningAgent
                 (negative = before, positive = after), a priority (low/medium/high/urgent), a realistic
                 estimated_minutes, the location in the venue, a concrete step-by-step checklist (3–6 steps), and the
                 resources/equipment needed. Detailed, specific tasks — never vague one-liners.
-              - Create ALL the tasks by calling api_tool repeatedly. When every task is created, reply with a single
-                short sentence summarising the plan. Do NOT ask questions — just act.
+              - Create ALL the tasks in ONE go: emit every api_tool "create_task" call together in your first
+                response (parallel tool calls) rather than a few at a time. When every task is created, reply with a
+                single short sentence summarising the plan. Do NOT ask questions — just act.
             PROMPT;
     }
 }

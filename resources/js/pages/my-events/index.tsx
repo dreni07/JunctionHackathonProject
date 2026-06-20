@@ -1,4 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
+import BrandLogo from '@/components/brand-logo';
 import {
     ArrowLeft,
     ArrowUpRight,
@@ -9,7 +10,6 @@ import {
     MapPin,
     Sparkles,
     TrendingUp,
-    Triangle,
     Users,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -144,22 +144,7 @@ export default function MyEventsIndex({
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                    <span
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 32,
-                            height: 32,
-                            borderRadius: 9,
-                            background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-                        }}
-                    >
-                        <Triangle size={15} fill="#fff" color="#fff" />
-                    </span>
-                    <span style={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-                        PIRAMIDA
-                    </span>
+                    <BrandLogo height={32} />
                     <span style={{ color: C.faint, fontSize: 14 }}>
                         · My events
                     </span>

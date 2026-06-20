@@ -82,4 +82,34 @@ class Space extends Model
     {
         return $this->hasMany(Reservation::class);
     }
+
+    /**
+     * Blocked / out-of-service spells for this venue.
+     *
+     * @return HasMany<VenueUnavailability, $this>
+     */
+    public function unavailabilities(): HasMany
+    {
+        return $this->hasMany(VenueUnavailability::class);
+    }
+
+    /**
+     * The unavailability in force right now (if the relation is loaded), else null.
+     */
+    public function currentUnavailability(): ?VenueUnavailability
+    {
+        if (! $this->relationLoaded('unavailabilities')) {
+            return $this->unavailabilities()->activeAt()->latest('starts_at')->first();
+        }
+
+        $now = now();
+
+        return $this->unavailabilities
+            ->first(function (VenueUnavailability $u) use ($now): bool {
+                $startsOk = $u->starts_at === null || $u->starts_at->lessThanOrEqualTo($now);
+                $endsOk = $u->ends_at === null || $u->ends_at->greaterThanOrEqualTo($now);
+
+                return $startsOk && $endsOk;
+            });
+    }
 }

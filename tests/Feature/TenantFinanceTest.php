@@ -98,6 +98,26 @@ test('non managers cannot access finance endpoints', function (): void {
     $this->actingAs($worker)
         ->getJson(route('operations.finance.index'))
         ->assertForbidden();
+
+    $this->actingAs($worker)
+        ->get(route('operations.finance.expenses.export'))
+        ->assertRedirect(route('operations.home'));
+});
+
+test('tenant managers can export branch expenses as a spreadsheet csv', function (): void {
+    $manager = User::factory()->tenantManager()->create();
+    $manager->syncRoles(RoleName::Operations);
+
+    $response = $this->actingAs($manager)
+        ->get(route('operations.finance.expenses.export'))
+        ->assertOk()
+        ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+    $content = $response->streamedContent();
+
+    expect($content)->toContain('Expense ID')
+        ->and($content)->toContain('Category Label')
+        ->and($content)->toContain('Total');
 });
 
 test('team dashboard includes branch workforce stats', function (): void {
