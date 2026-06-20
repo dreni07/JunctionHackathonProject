@@ -251,7 +251,7 @@ export default function MyEventShow({
                 </div>
 
                 {/* where it is in the Pyramid */}
-                {event.venue?.location_geometry && (
+                {event.venue && (
                     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 22, marginTop: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                             <SectionTitle>
@@ -270,23 +270,28 @@ export default function MyEventShow({
                                     borderRadius: 999,
                                 }}
                             >
-                                {event.venue.name}
-                                {event.venue.location_geometry.level
-                                    ? ` · floor ${event.venue.location_geometry.level}`
-                                    : ` · floor ${event.venue.floor}`}
+                                {event.venue.name} · floor{' '}
+                                {event.venue.location_geometry?.level ??
+                                    event.venue.floor}
                             </span>
                         </div>
                         <PyramidMap
-                            src={`/assets/pyramid-plan-${event.venue.location_geometry.level ?? 1}.png`}
-                            pins={[
-                                {
-                                    id: 'venue',
-                                    x: event.venue.location_geometry.x,
-                                    y: event.venue.location_geometry.y,
-                                    label: event.venue.box_ref ?? event.venue.name,
-                                    tone: 'highlight',
-                                },
-                            ]}
+                            src={`/assets/pyramid-plan-${event.venue.location_geometry?.level ?? 1}.png`}
+                            pins={
+                                event.venue.location_geometry
+                                    ? [
+                                          {
+                                              id: 'venue',
+                                              x: event.venue.location_geometry.x,
+                                              y: event.venue.location_geometry.y,
+                                              label:
+                                                  event.venue.box_ref ??
+                                                  event.venue.name,
+                                              tone: 'highlight',
+                                          },
+                                      ]
+                                    : []
+                            }
                             style={{ borderRadius: 14 }}
                         />
                     </div>

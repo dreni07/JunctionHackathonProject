@@ -1,4 +1,10 @@
-import { type CSSProperties, type MouseEvent, useId } from 'react';
+import {
+    type CSSProperties,
+    type MouseEvent,
+    useEffect,
+    useId,
+    useState,
+} from 'react';
 
 export type MapPin = {
     id: string;
@@ -21,6 +27,8 @@ const PIN_STYLE = `
 .pmap-label{position:absolute;left:50%;top:calc(50% + 12px);transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:#E0483A;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
 .pmap-label.default{background:#10825B}
 .pmap-clickable{cursor:crosshair}
+.pmap-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;min-height:320px;border:2px dashed #E0DCD3;border-radius:14px;background:#FBFAF7;color:#6E6E6E;text-align:center;padding:24px;line-height:1.5}
+.pmap-missing b{color:#1A1A1A;font-size:15px;font-weight:700}
 `;
 
 /**
@@ -42,6 +50,12 @@ export function PyramidMap({
     style?: CSSProperties;
 }) {
     const scope = useId();
+    const [failed, setFailed] = useState(false);
+
+    // Reset the error state when the image source changes (e.g. new floor).
+    useEffect(() => {
+        setFailed(false);
+    }, [src]);
 
     const handleClick = (event: MouseEvent<HTMLDivElement>) => {
         if (!onPick) {
@@ -66,9 +80,26 @@ export function PyramidMap({
             data-scope={scope}
         >
             <style dangerouslySetInnerHTML={{ __html: PIN_STYLE }} />
-            <img className="pmap-img" src={src} alt="Pyramid floor plan" />
 
-            {pins.map((pin) => {
+            {failed ? (
+                <div className="pmap-missing">
+                    <b>Floor plan not uploaded yet</b>
+                    <span>
+                        An operations worker can add this floor's plan image in
+                        Map&nbsp;setup, then this venue will be highlighted on it.
+                    </span>
+                </div>
+            ) : (
+                <img
+                    className="pmap-img"
+                    src={src}
+                    alt="Pyramid floor plan"
+                    onError={() => setFailed(true)}
+                />
+            )}
+
+            {!failed &&
+                pins.map((pin) => {
                 const tone = pin.tone ?? 'default';
 
                 return (

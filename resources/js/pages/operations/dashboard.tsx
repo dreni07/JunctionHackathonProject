@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Bell,
     Building2,
+    Calendar as CalendarIcon,
     CalendarDays,
     CheckCircle2,
     ClipboardList,
@@ -18,7 +19,8 @@ import {
     Wallet,
     X,
 } from 'lucide-react';
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Calendar } from '@/components/ui/calendar';
 
 /* ---- palette (shared with the landing + planner) ---- */
 const C = {
@@ -71,6 +73,30 @@ select.ops-select:hover{border-color:${C.green}}
 .ops-mobile-top{display:flex}
 .ops-main{padding-top:0!important}
 }
+.ops-cal-wrap{
+--primary:#10825B;
+--primary-foreground:#fff;
+--accent:#D8E2DC;
+--accent-foreground:#1A1A1A;
+--background:#FFFFFF;
+--foreground:#1A1A1A;
+--muted-foreground:#6E6E6E;
+--border:#E0DCD3;
+--ring:#10825B;
+--radius:0.75rem;
+font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+background:#fff;
+border:1px solid ${C.borderSoft};
+border-radius:16px;
+padding:12px 10px 16px;
+box-shadow:0 18px 40px -32px rgba(26,26,26,0.28);
+}
+.ops-cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:clamp(16px,3vw,28px);align-items:start}
+@media(max-width:820px){.ops-cal-layout{grid-template-columns:1fr}}
+.ops-cal-day-card{border:1px solid ${C.borderSoft};border-radius:14px;background:#fff;padding:16px 18px;transition:box-shadow .2s ease}
+.ops-cal-day-card:hover{box-shadow:0 14px 32px -28px rgba(26,26,26,0.28)}
+.ops-cal-legend{display:flex;align-items:center;gap:8px;font-size:12px;color:${C.muted};margin-top:14px;padding:0 6px}
+.ops-cal-legend-dot{width:8px;height:8px;border-radius:999px;background:${C.green}}
 `;
 
 /* ---- types ---- */
@@ -107,11 +133,31 @@ type Task = {
     description: string | null;
     state: string;
     state_label: string;
+    phase: string;
     phase_label: string;
+    priority: string;
+    priority_label: string;
+    estimated_minutes: number | null;
+    location: string | null;
+    checklist: string[];
+    resources: string[];
     due_at: string | null;
+    created_at: string | null;
     user_id: number | null;
-    worker: { id: number; name: string } | null;
-    event: { id: string; title: string } | null;
+    worker: { id: number; name: string; worker_role: string | null } | null;
+    event: {
+        id: string;
+        title: string;
+        event_type: string | null;
+        start_time: string | null;
+    } | null;
+};
+
+const PRIORITY_COLOR: Record<string, string> = {
+    low: '#6E6E6E',
+    medium: '#3B82C4',
+    high: '#8A6D1C',
+    urgent: '#B4453A',
 };
 
 type Alert = {
@@ -189,7 +235,16 @@ type ProfileCard = {
     member_since: string | null;
 };
 
-type View = 'overview' | 'requests' | 'tasks' | 'alerts' | 'events' | 'spaces' | 'team' | 'money';
+type View =
+    | 'overview'
+    | 'requests'
+    | 'tasks'
+    | 'alerts'
+    | 'events'
+    | 'calendar'
+    | 'spaces'
+    | 'team'
+    | 'money';
 
 /* ---- fetch helpers ---- */
 function csrf(): string {
@@ -300,6 +355,12 @@ const NAV: {
     { view: 'tasks', label: 'My Tasks', icon: ListChecks, perm: 'tasks.view' },
     { view: 'alerts', label: 'Alerts', icon: Bell, perm: 'requests.view' },
     { view: 'events', label: 'Events', icon: CalendarDays, perm: 'events.view' },
+    {
+        view: 'calendar',
+        label: 'Calendar',
+        icon: CalendarIcon,
+        perm: 'events.view',
+    },
     { view: 'spaces', label: 'Spaces', icon: MapPin, perm: 'spaces.view' },
     {
         view: 'team',
@@ -674,6 +735,7 @@ export default function OperationsDashboard() {
                     {view === 'tasks' && <TasksView user={auth.user} />}
                     {view === 'alerts' && <AlertsView userId={auth.user.id} />}
                     {view === 'events' && <EventsView />}
+                    {view === 'calendar' && <CalendarView />}
                     {view === 'spaces' && <SpacesView />}
                     {view === 'team' && isTenantManager && (
                         <TeamView roles={assignableWorkerRoles} />
@@ -857,6 +919,7 @@ function TasksView({ user }: { user: AuthUser }) {
     );
     // Optimistic state overrides so cards move instantly on drop.
     const [moved, setMoved] = useState<Record<string, string>>({});
+    const [detailTask, setDetailTask] = useState<Task | null>(null);
 
     const all = (data?.data ?? []).map((t) =>
         moved[t.id] ? { ...t, state: moved[t.id] } : t,
@@ -909,7 +972,23 @@ function TasksView({ user }: { user: AuthUser }) {
                     <Empty text="No tasks here yet — accept an event request to have the AI plan the work." />
                 </Panel>
             ) : (
-                <KanbanBoard tasks={tasks} showWorker={scope === 'all'} onMove={move} />
+                <KanbanBoard
+                    tasks={tasks}
+                    showWorker={scope === 'all'}
+                    onMove={move}
+                    onOpen={setDetailTask}
+                />
+            )}
+
+            {detailTask && (
+                <TaskDetailsModal
+                    task={detailTask}
+                    onClose={() => setDetailTask(null)}
+                    onChangeState={(state) => {
+                        move(detailTask.id, state);
+                        setDetailTask({ ...detailTask, state });
+                    }}
+                />
             )}
         </>
     );
@@ -919,10 +998,12 @@ function KanbanBoard({
     tasks,
     showWorker,
     onMove,
+    onOpen,
 }: {
     tasks: Task[];
     showWorker: boolean;
     onMove: (taskId: string, state: string) => void;
+    onOpen: (task: Task) => void;
 }) {
     const [dragId, setDragId] = useState<string | null>(null);
     const [overState, setOverState] = useState<string | null>(null);
@@ -1014,6 +1095,7 @@ function KanbanBoard({
                                     accent={col.accent}
                                     showWorker={showWorker}
                                     dragging={dragId === task.id}
+                                    onOpen={() => onOpen(task)}
                                     onDragStart={() => setDragId(task.id)}
                                     onDragEnd={() => {
                                         setDragId(null);
@@ -1034,6 +1116,7 @@ function KanbanCard({
     accent,
     showWorker,
     dragging,
+    onOpen,
     onDragStart,
     onDragEnd,
 }: {
@@ -1041,76 +1124,186 @@ function KanbanCard({
     accent: string;
     showWorker: boolean;
     dragging: boolean;
+    onOpen: () => void;
     onDragStart: () => void;
     onDragEnd: () => void;
 }) {
+    const priorityColor = PRIORITY_COLOR[task.priority] ?? C.faint;
+
     return (
         <div
             draggable
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
+            onClick={onOpen}
+            className="ops-task-card"
             style={{
                 background: C.card,
                 borderRadius: 11,
                 border: `1px solid ${C.border}`,
                 borderLeft: `3px solid ${accent}`,
-                padding: '10px 12px',
-                cursor: 'grab',
+                padding: '11px 12px',
+                cursor: 'pointer',
                 opacity: dragging ? 0.4 : 1,
                 boxShadow: '0 1px 2px rgba(26,26,26,0.04)',
             }}
         >
-            <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.35 }}>
-                {task.name}
+            {/* priority + name */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                <span
+                    title={task.priority_label}
+                    style={{
+                        marginTop: 5,
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: priorityColor,
+                        flex: 'none',
+                    }}
+                />
+                <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.35 }}>
+                    {task.name}
+                </div>
             </div>
+
+            {/* event it belongs to */}
             {task.event?.title && (
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-                    {task.event.title}
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        marginTop: 7,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: C.green,
+                        background: C.greenTint,
+                        padding: '3px 8px',
+                        borderRadius: 7,
+                        width: 'fit-content',
+                        maxWidth: '100%',
+                    }}
+                >
+                    <CalendarDays size={11} style={{ flex: 'none' }} />
+                    <span
+                        style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {task.event.title}
+                    </span>
                 </div>
             )}
+
+            {/* meta: phase · time · steps · location */}
             <div
                 style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 8,
                     marginTop: 8,
                     flexWrap: 'wrap',
+                    fontSize: 11.5,
+                    color: C.faint,
                 }}
             >
                 <span
                     style={{
-                        fontSize: 10.5,
                         fontWeight: 700,
                         letterSpacing: '0.04em',
                         textTransform: 'uppercase',
-                        color: C.faint,
                         background: C.cream,
                         padding: '2px 7px',
                         borderRadius: 6,
+                        fontSize: 10.5,
                     }}
                 >
                     {task.phase_label}
                 </span>
-                {task.due_at && (
-                    <span style={{ fontSize: 11.5, color: C.faint }}>
-                        due {formatDate(task.due_at)}
-                    </span>
+                {task.estimated_minutes != null && (
+                    <span>~{formatMinutes(task.estimated_minutes)}</span>
                 )}
-                {showWorker && task.worker && (
+                {task.checklist.length > 0 && (
                     <span
                         style={{
-                            marginLeft: 'auto',
-                            fontSize: 11.5,
-                            fontWeight: 600,
-                            color: C.green,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
                         }}
                     >
-                        {task.worker.name}
+                        <ListChecks size={12} />
+                        {task.checklist.length}
                     </span>
                 )}
             </div>
+
+            {/* assignee — the manager sees who it's for */}
+            {(showWorker || true) && task.worker && (
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        marginTop: 9,
+                        paddingTop: 9,
+                        borderTop: `1px solid ${C.borderSoft}`,
+                    }}
+                >
+                    <span
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: C.greenTint,
+                            color: C.greenDeep,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            flex: 'none',
+                        }}
+                    >
+                        {initialsOf(task.worker.name)}
+                    </span>
+                    <span
+                        style={{
+                            fontSize: 11.5,
+                            color: C.muted,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {task.worker.name}
+                        {task.worker.worker_role
+                            ? ` · ${task.worker.worker_role}`
+                            : ''}
+                    </span>
+                </div>
+            )}
         </div>
     );
+}
+
+function formatMinutes(mins: number): string {
+    if (mins < 60) {
+        return `${mins}m`;
+    }
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+function initialsOf(name: string): string {
+    return name
+        .split(' ')
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
 }
 
 /* ============================ ALERTS ============================ */
@@ -1712,12 +1905,14 @@ function RequestRow({
 }) {
     const [busy, setBusy] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
+    const [rejecting, setRejecting] = useState(false);
     const [planningEvent, setPlanningEvent] = useState<{
         id: string;
         title: string;
     } | null>(null);
     const registered =
         request.status === 'converted' || request.event_id != null;
+    const rejected = request.status === 'rejected';
     const price = request.price_agreed ?? request.price_suggested;
 
     const confirm = async () => {
@@ -1832,38 +2027,239 @@ function RequestRow({
                     <CheckCircle2 size={14} />
                     Registered
                 </span>
-            ) : canManage ? (
-                <button
-                    type="button"
-                    className="ops-confirm"
-                    onClick={confirm}
-                    disabled={busy}
+            ) : rejected ? (
+                <span
                     style={{
                         flex: 'none',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 7,
-                        padding: '8px 15px',
-                        borderRadius: 9,
-                        border: 'none',
-                        background: C.green,
-                        color: '#fff',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: busy ? 'not-allowed' : 'pointer',
-                        opacity: busy ? 0.6 : 1,
+                        gap: 5,
+                        padding: '5px 11px',
+                        borderRadius: 999,
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: C.danger,
+                        background: C.dangerTint,
                     }}
                 >
-                    {busy ? (
-                        <RefreshCw size={14} className="ops-spin" />
-                    ) : (
-                        <CheckCircle2 size={15} />
-                    )}
-                    {busy ? 'Confirming…' : 'Confirm & register'}
-                </button>
+                    Declined
+                </span>
+            ) : canManage ? (
+                <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
+                    <button
+                        type="button"
+                        className="ops-btn"
+                        onClick={() => setRejecting(true)}
+                        disabled={busy}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '8px 13px',
+                            borderRadius: 9,
+                            border: `1px solid ${C.border}`,
+                            background: C.card,
+                            color: C.danger,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <X size={14} />
+                        Reject
+                    </button>
+                    <button
+                        type="button"
+                        className="ops-confirm"
+                        onClick={confirm}
+                        disabled={busy}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 7,
+                            padding: '8px 15px',
+                            borderRadius: 9,
+                            border: 'none',
+                            background: C.green,
+                            color: '#fff',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: busy ? 'not-allowed' : 'pointer',
+                            opacity: busy ? 0.6 : 1,
+                        }}
+                    >
+                        {busy ? (
+                            <RefreshCw size={14} className="ops-spin" />
+                        ) : (
+                            <CheckCircle2 size={15} />
+                        )}
+                        {busy ? 'Confirming…' : 'Confirm & register'}
+                    </button>
+                </div>
             ) : (
                 <Chip text={request.status_label} />
             )}
+
+            {rejecting && (
+                <RejectRequestModal
+                    request={request}
+                    onClose={() => setRejecting(false)}
+                    onRejected={() => {
+                        setRejecting(false);
+                        onChanged();
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+function RejectRequestModal({
+    request,
+    onClose,
+    onRejected,
+}: {
+    request: EventRequest;
+    onClose: () => void;
+    onRejected: () => void;
+}) {
+    const [reason, setReason] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+
+    const submit = async () => {
+        if (reason.trim().length < 3) {
+            setError('Please give a short reason — the organizer will see it.');
+            return;
+        }
+        setBusy(true);
+        setError('');
+        const res = await postJson(
+            `/operations/event-requests/${request.id}/reject`,
+            { reason },
+        );
+        setBusy(false);
+        if (res.ok) {
+            onRejected();
+        } else {
+            setError('Could not decline this request. Please try again.');
+        }
+    };
+
+    return (
+        <div
+            className="ops-overlay"
+            onClick={onClose}
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 60,
+                background: 'rgba(26,26,26,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20,
+            }}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    width: '100%',
+                    maxWidth: 460,
+                    background: C.card,
+                    borderRadius: 18,
+                    border: `1px solid ${C.border}`,
+                    boxShadow: '0 36px 80px -32px rgba(26,26,26,0.5)',
+                    padding: '22px',
+                }}
+            >
+                <div style={{ fontSize: 17, fontWeight: 800 }}>
+                    Decline this request
+                </div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>
+                    “{request.title ?? 'Untitled request'}” — the organizer is
+                    emailed and notified with your reason.
+                </div>
+
+                <div
+                    style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        letterSpacing: '0.03em',
+                        textTransform: 'uppercase',
+                        color: C.faint,
+                        margin: '16px 0 6px',
+                    }}
+                >
+                    Reason for declining
+                </div>
+                <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={4}
+                    autoFocus
+                    placeholder="e.g. The requested date clashes with a maintenance closure…"
+                    style={{
+                        width: '100%',
+                        padding: '11px 13px',
+                        borderRadius: 10,
+                        border: `1px solid ${C.border}`,
+                        fontSize: 14,
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        resize: 'vertical',
+                    }}
+                />
+                {error && (
+                    <div style={{ color: C.danger, fontSize: 13, marginTop: 8 }}>
+                        {error}
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        style={{
+                            flex: 1,
+                            padding: '11px',
+                            borderRadius: 10,
+                            border: `1px solid ${C.border}`,
+                            background: C.card,
+                            color: C.ink,
+                            fontSize: 14,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={busy}
+                        style={{
+                            flex: 1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 7,
+                            padding: '11px',
+                            borderRadius: 10,
+                            border: 'none',
+                            background: C.danger,
+                            color: '#fff',
+                            fontSize: 14,
+                            fontWeight: 700,
+                            cursor: busy ? 'not-allowed' : 'pointer',
+                            opacity: busy ? 0.6 : 1,
+                        }}
+                    >
+                        {busy ? <RefreshCw size={15} className="ops-spin" /> : <X size={15} />}
+                        {busy ? 'Declining…' : 'Decline & notify'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -2382,6 +2778,233 @@ function TaskPlanningModal({
                 )}
             </div>
         </div>
+    );
+}
+
+/* ============================ CALENDAR ============================ */
+
+function toDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+function CalendarView() {
+    const { data, loading, reload } = useApi<{ data: Event[] }>(
+        '/operations/events?per_page=100',
+    );
+    const events = data?.data ?? [];
+    const [selected, setSelected] = useState<Date | undefined>(undefined);
+
+    const { eventDates, eventsByDate, upcomingMonth } = useMemo(() => {
+        const byDate = new Map<string, Event[]>();
+        const dates: Date[] = [];
+
+        for (const event of events) {
+            if (!event.start_time) {
+                continue;
+            }
+
+            const parsed = new Date(event.start_time);
+            if (Number.isNaN(parsed.getTime())) {
+                continue;
+            }
+
+            const normalized = new Date(
+                parsed.getFullYear(),
+                parsed.getMonth(),
+                parsed.getDate(),
+            );
+            const key = toDateKey(normalized);
+
+            if (!byDate.has(key)) {
+                byDate.set(key, []);
+                dates.push(normalized);
+            }
+
+            byDate.get(key)?.push(event);
+        }
+
+        for (const dayEvents of byDate.values()) {
+            dayEvents.sort((a, b) => {
+                const aTime = a.start_time ? new Date(a.start_time).getTime() : 0;
+                const bTime = b.start_time ? new Date(b.start_time).getTime() : 0;
+
+                return aTime - bTime;
+            });
+        }
+
+        dates.sort((a, b) => a.getTime() - b.getTime());
+
+        return {
+            eventDates: dates,
+            eventsByDate: byDate,
+            upcomingMonth: dates[0] ?? new Date(),
+        };
+    }, [events]);
+
+    const selectedEvents = selected
+        ? (eventsByDate.get(toDateKey(selected)) ?? [])
+        : [];
+    const selectedLabel = selected
+        ? selected.toLocaleDateString(undefined, {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+          })
+        : null;
+
+    return (
+        <>
+            <Header
+                title="Calendar"
+                subtitle="Browse scheduled events by day across the Pyramid."
+                onRefresh={reload}
+            />
+
+            <div className="ops-cal-layout">
+                <div>
+                    <div className="ops-cal-wrap">
+                        {loading ? (
+                            <div
+                                style={{
+                                    minHeight: 320,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: C.muted,
+                                    fontSize: 14,
+                                }}
+                            >
+                                Loading calendar…
+                            </div>
+                        ) : (
+                            <Calendar
+                                mode="single"
+                                selected={selected}
+                                onSelect={setSelected}
+                                defaultMonth={upcomingMonth}
+                                modifiers={{ hasEvent: eventDates }}
+                                className="mx-auto"
+                            />
+                        )}
+                    </div>
+                    <div className="ops-cal-legend">
+                        <span className="ops-cal-legend-dot" />
+                        Dates with scheduled events
+                    </div>
+                </div>
+
+                <div>
+                    <div
+                        style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            color: C.faint,
+                            marginBottom: 10,
+                        }}
+                    >
+                        Day details
+                    </div>
+
+                    {!selected && (
+                        <div
+                            className="ops-cal-day-card"
+                            style={{
+                                color: C.muted,
+                                fontSize: 14,
+                                lineHeight: 1.55,
+                            }}
+                        >
+                            Select a date on the calendar to see events for that
+                            day.
+                        </div>
+                    )}
+
+                    {selected && selectedEvents.length === 0 && (
+                        <div
+                            className="ops-cal-day-card"
+                            style={{
+                                color: C.muted,
+                                fontSize: 14,
+                                lineHeight: 1.55,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontWeight: 700,
+                                    color: C.ink,
+                                    marginBottom: 6,
+                                }}
+                            >
+                                {selectedLabel}
+                            </div>
+                            No events scheduled for this day.
+                        </div>
+                    )}
+
+                    {selected && selectedEvents.length > 0 && (
+                        <div style={{ display: 'grid', gap: 10 }}>
+                            <div
+                                style={{
+                                    fontSize: 15,
+                                    fontWeight: 700,
+                                    color: C.ink,
+                                    padding: '0 2px',
+                                }}
+                            >
+                                {selectedLabel}
+                            </div>
+                            {selectedEvents.map((event) => (
+                                <div key={event.id} className="ops-cal-day-card">
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            justifyContent: 'space-between',
+                                            gap: 10,
+                                        }}
+                                    >
+                                        <div style={{ minWidth: 0 }}>
+                                            <div
+                                                style={{
+                                                    fontSize: 15,
+                                                    fontWeight: 700,
+                                                    letterSpacing: '-0.01em',
+                                                }}
+                                            >
+                                                {event.title ?? 'Untitled event'}
+                                            </div>
+                                            <div
+                                                style={{
+                                                    fontSize: 12.5,
+                                                    color: C.muted,
+                                                    marginTop: 4,
+                                                }}
+                                            >
+                                                {event.event_type_label ?? 'Event'}
+                                                {event.attendees
+                                                    ? ` · ${event.attendees} people`
+                                                    : ''}
+                                                {event.start_time
+                                                    ? ` · ${formatTime(event.start_time)}`
+                                                    : ''}
+                                            </div>
+                                        </div>
+                                        <Chip text={event.status_label} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </>
     );
 }
 
@@ -3486,6 +4109,18 @@ function formatDate(iso: string): string {
     return d.toLocaleString(undefined, {
         month: 'short',
         day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
+function formatTime(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+        return iso;
+    }
+
+    return d.toLocaleTimeString(undefined, {
         hour: 'numeric',
         minute: '2-digit',
     });

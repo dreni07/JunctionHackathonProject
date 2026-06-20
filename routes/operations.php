@@ -21,7 +21,7 @@ use App\Http\Controllers\Operations\TenantFinanceController;
 use App\Http\Controllers\Operations\TenantWorkerController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', 'operational'])
+Route::middleware(['auth', 'operational'])
     ->prefix('operations')
     ->name('operations.')
     ->group(function (): void {

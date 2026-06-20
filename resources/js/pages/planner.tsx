@@ -27,7 +27,7 @@ import {
     X,
     type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { PyramidMap } from '@/components/pyramid-map';
 import type { Auth } from '@/types';
 
@@ -684,8 +684,47 @@ async function postJson(url: string, payload: unknown): Promise<Response> {
     });
 }
 
+type AgentMode = 'advisor' | 'intake';
+
+type AgentResult = {
+    reply: string;
+    review: EventDetails | null;
+    submitted: { id: string; status: string; price?: number | null } | null;
+    ended: boolean;
+};
+
+/**
+ * The single entry point into the planner's agentic model — the same advisor →
+ * intake loop, tools, and venue/pricing review for EVERY surface (voice, chat,
+ * document). `modeRef` carries which agent is in charge across turns.
+ */
+async function runPlannerAgent(
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    modeRef: { current: AgentMode },
+): Promise<AgentResult> {
+    const response = await postJson('/planner/agent', {
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        mode: modeRef.current,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.message || 'Agent error.');
+    }
+    if (data.mode === 'advisor' || data.mode === 'intake') {
+        modeRef.current = data.mode;
+    }
+    return {
+        reply: String(data.reply || ''),
+        review: data.review ?? null,
+        submitted: data.submitted ?? null,
+        ended: Boolean(data.ended),
+    };
+}
+
 export default function Planner() {
     const [mode, setMode] = useState<Mode>('home');
+    // Text extracted from an uploaded brief, handed straight to the chat agent.
+    const [chatSeed, setChatSeed] = useState<string | null>(null);
     const { auth } = usePage<{ auth: Auth }>().props;
     const user = auth.user;
     const initials = user?.name
@@ -745,12 +784,31 @@ export default function Planner() {
                     minHeight: 0,
                 }}
             >
-                {mode === 'home' && <Home onSelect={setMode} />}
+                {mode === 'home' && (
+                    <Home
+                        onSelect={(m) => {
+                            setChatSeed(null);
+                            setMode(m);
+                        }}
+                    />
+                )}
                 {mode === 'voice' && (
                     <VoiceMode onExit={() => setMode('home')} />
                 )}
-                {mode === 'chat' && <ChatMode />}
-                {mode === 'upload' && <UploadMode />}
+                {mode === 'chat' && (
+                    <ChatMode
+                        initialMessage={chatSeed ?? undefined}
+                        initialMode={chatSeed ? 'intake' : 'advisor'}
+                    />
+                )}
+                {mode === 'upload' && (
+                    <UploadMode
+                        onExtracted={(text) => {
+                            setChatSeed(text);
+                            setMode('chat');
+                        }}
+                    />
+                )}
             </div>
         </div>
     );
@@ -1030,32 +1088,40 @@ function kleopatraSrc(phase: ConvoPhase): string {
     return KLEOPATRA.hello; // speaking, idle, error
 }
 
-/** Round Kleopatra portrait used wherever the agent is represented. */
+function kleopatraFrameStyle(size: number): CSSProperties {
+    return {
+        position: 'relative',
+        width: size,
+        height: size,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
+        borderRadius: 0,
+        boxShadow: 'none',
+    };
+}
+
+function kleopatraImageStyle(size: number): CSSProperties {
+    return {
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        background: 'transparent',
+        border: 'none',
+        borderRadius: 0,
+        boxShadow: 'none',
+    };
+}
+
+/** Kleopatra portrait used wherever the agent is represented. */
 function Orb({ size = 92, phase }: { size?: number; phase?: ConvoPhase }) {
     return (
-        <div style={{ position: 'relative', width: size, height: size }}>
-            <div
-                style={{
-                    position: 'absolute',
-                    inset: -16,
-                    borderRadius: '50%',
-                    background:
-                        'radial-gradient(circle, rgba(16,130,91,0.3), transparent 70%)',
-                    filter: 'blur(16px)',
-                }}
-            />
+        <div style={kleopatraFrameStyle(size)}>
             <img
                 src={kleopatraSrc(phase ?? 'idle')}
                 alt="Kleopatra"
-                style={{
-                    position: 'relative',
-                    width: size,
-                    height: size,
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    border: '2px solid rgba(255,255,255,0.85)',
-                    boxShadow: '0 12px 30px -14px rgba(10,30,20,0.5)',
-                }}
+                style={kleopatraImageStyle(size)}
             />
         </div>
     );
@@ -1251,36 +1317,8 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         return String(data.text || '');
     };
 
-    const agentTurn = async (
-        history: VoiceTurn[],
-    ): Promise<{
-        reply: string;
-        review: EventDetails | null;
-        submitted: { id: string; status: string; price?: number | null } | null;
-        ended: boolean;
-    }> => {
-        const response = await postJson('/planner/agent', {
-            messages: history.map((turn) => ({
-                role: turn.role,
-                content: turn.content,
-            })),
-            mode: agentModeRef.current,
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(data.message || 'Agent error.');
-        }
-        // Persist which agent is now in charge (advisor → intake handoff).
-        if (data.mode === 'advisor' || data.mode === 'intake') {
-            agentModeRef.current = data.mode;
-        }
-        return {
-            reply: String(data.reply || ''),
-            review: data.review ?? null,
-            submitted: data.submitted ?? null,
-            ended: Boolean(data.ended),
-        };
-    };
+    const agentTurn = (history: VoiceTurn[]): Promise<AgentResult> =>
+        runPlannerAgent(history, agentModeRef);
 
     // After the agent finishes speaking, either hang up (if the agent chose to
     // end the call) or go back to listening.
@@ -1606,7 +1644,6 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                     type="button"
                     onClick={() => void begin()}
                     aria-label="Start the conversation"
-                    className="pl-card"
                     style={{
                         position: 'relative',
                         display: 'flex',
@@ -1614,25 +1651,18 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                         justifyContent: 'center',
                         width: 120,
                         height: 120,
-                        borderRadius: '50%',
                         padding: 0,
                         border: 'none',
                         cursor: 'pointer',
                         background: 'transparent',
+                        borderRadius: 0,
+                        boxShadow: 'none',
                     }}
                 >
                     <img
                         src={KLEOPATRA.hello}
                         alt="Kleopatra"
-                        style={{
-                            width: 120,
-                            height: 120,
-                            borderRadius: '50%',
-                            objectFit: 'cover',
-                            border: '3px solid #fff',
-                            boxShadow:
-                                '0 20px 44px -18px rgba(16,130,91,0.6)',
-                        }}
+                        style={kleopatraImageStyle(120)}
                     />
                     <span
                         style={{
@@ -1724,28 +1754,13 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                             ? 'pl-breathe'
                             : undefined
                     }
-                    style={{
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 104,
-                        height: 104,
-                        borderRadius: '50%',
-                    }}
+                    style={kleopatraFrameStyle(104)}
                 >
                     {phase === 'listening' && <span className="pl-mic-ping" />}
                     <img
                         src={kleopatraSrc(phase)}
                         alt="Kleopatra"
-                        style={{
-                            width: 104,
-                            height: 104,
-                            borderRadius: '50%',
-                            objectFit: 'cover',
-                            border: '2px solid rgba(255,255,255,0.9)',
-                            boxShadow: '0 14px 32px -16px rgba(10,30,20,0.55)',
-                        }}
+                        style={kleopatraImageStyle(104)}
                     />
                 </span>
             </div>
@@ -1947,12 +1962,31 @@ type ChatMessage = {
     tools?: string[];
 };
 
-function ChatMode({ initialInput = '' }: { initialInput?: string }) {
+function ChatMode({
+    initialInput = '',
+    initialMessage,
+    initialMode = 'advisor',
+}: {
+    initialInput?: string;
+    initialMessage?: string;
+    initialMode?: AgentMode;
+}) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState(initialInput);
     const [sending, setSending] = useState(false);
     const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+    const [review, setReview] = useState<EventDetails | null>(null);
+    const [reviewOpen, setReviewOpen] = useState(false);
+    const [submitted, setSubmitted] = useState<{
+        id: string;
+        status: string;
+        price?: number | null;
+    } | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
+    // Same agent state as the voice flow: starts with the advisor, hands over
+    // to the booking (intake) agent when the visitor wants to organize.
+    const agentModeRef = useRef<AgentMode>(initialMode);
+    const seededRef = useRef(false);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({
@@ -1961,53 +1995,57 @@ function ChatMode({ initialInput = '' }: { initialInput?: string }) {
         });
     }, [messages, sending]);
 
-    const send = async () => {
-        const text = input.trim();
-        if (text === '' || sending) {
-            return;
-        }
-
-        const next: ChatMessage[] = [
-            ...messages,
-            { role: 'user', content: text },
-        ];
+    // Run one turn of the SAME planner agent the voice mode uses.
+    const turn = async (next: ChatMessage[]) => {
         setMessages(next);
-        setInput('');
         setSending(true);
-
         try {
-            const response = await postJson('/chat', {
-                messages: next.map((m) => ({
-                    role: m.role,
-                    content: m.content,
-                })),
-            });
-            const data = await response.json().catch(() => ({}));
-
+            const result = await runPlannerAgent(next, agentModeRef);
+            if (result.submitted) {
+                setSubmitted(result.submitted);
+                setReview(null);
+                setReviewOpen(false);
+            } else if (result.review) {
+                setReview(result.review);
+                setReviewOpen(true);
+            }
             setMessages((current) => [
                 ...current,
                 {
                     role: 'assistant',
-                    content: response.ok
-                        ? String(data.reply || '')
-                        : data.message || 'Something went wrong.',
-                    tools: Array.isArray(data.tools_used)
-                        ? data.tools_used
-                        : undefined,
+                    content:
+                        result.reply ||
+                        'Sorry, I had trouble responding. Could you try again?',
                 },
             ]);
         } catch {
             setMessages((current) => [
                 ...current,
-                {
-                    role: 'assistant',
-                    content: 'Network error. Please try again.',
-                },
+                { role: 'assistant', content: 'Network error. Please try again.' },
             ]);
         } finally {
             setSending(false);
         }
     };
+
+    const send = async () => {
+        const text = input.trim();
+        if (text === '' || sending) {
+            return;
+        }
+        setInput('');
+        await turn([...messages, { role: 'user', content: text }]);
+    };
+
+    // Document flow: auto-send the extracted brief so the agent reads it and
+    // starts asking for whatever is still missing — reusing the same loop.
+    useEffect(() => {
+        if (initialMessage && !seededRef.current) {
+            seededRef.current = true;
+            void turn([{ role: 'user', content: initialMessage }]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialMessage]);
 
     const speak = async (text: string, index: number) => {
         try {
@@ -2244,33 +2282,85 @@ function ChatMode({ initialInput = '' }: { initialInput?: string }) {
                         <ArrowUp size={18} />
                     </button>
                 </div>
+                {submitted && (
+                    <div
+                        style={{
+                            marginTop: 10,
+                            padding: '10px 14px',
+                            borderRadius: 12,
+                            background: 'rgba(16,130,91,0.08)',
+                            color: C.green,
+                            fontSize: 13.5,
+                            fontWeight: 600,
+                            textAlign: 'center',
+                        }}
+                    >
+                        Your event request was submitted. We'll be in touch!
+                    </div>
+                )}
             </div>
+
+            {reviewOpen && review && !submitted && (
+                <ReviewModal
+                    review={review}
+                    onClose={() => setReviewOpen(false)}
+                />
+            )}
         </div>
     );
 }
 
 /* ============================ UPLOAD ============================ */
 
-function UploadMode() {
+function UploadMode({
+    onExtracted,
+}: {
+    onExtracted: (text: string) => void;
+}) {
     const [file, setFile] = useState<File | null>(null);
     const [over, setOver] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState('');
     const inputRef = useRef<HTMLInputElement | null>(null);
 
-    const upload = () => {
+    // Read the document's text, then hand it straight to the same planner agent
+    // (in the chat) so it can work from the brief and ask for anything missing.
+    const upload = async () => {
         if (!file || uploading) {
             return;
         }
 
         setUploading(true);
-        router.post(
-            '/documents',
-            { file },
-            {
-                forceFormData: true,
-                onFinish: () => setUploading(false),
-            },
-        );
+        setError('');
+
+        const isPdf =
+            file.type === 'application/pdf' ||
+            file.name.toLowerCase().endsWith('.pdf');
+        const form = new FormData();
+        form.append(isPdf ? 'document' : 'image', file);
+
+        try {
+            const response = await postForm(
+                isPdf ? '/ocr/document' : '/ocr',
+                form,
+            );
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Could not read the document.');
+            }
+            const text = String(data.response || '').trim();
+            if (text === '') {
+                throw new Error("We couldn't find any text in that file.");
+            }
+            onExtracted(
+                `Here is my event brief — please read it and set up the event:\n\n${text}`,
+            );
+        } catch (e) {
+            setError(
+                e instanceof Error ? e.message : 'Could not read the document.',
+            );
+            setUploading(false);
+        }
     };
 
     return (
@@ -2419,7 +2509,7 @@ function UploadMode() {
                     type="button"
                     className="pl-send"
                     disabled={!file || uploading}
-                    onClick={upload}
+                    onClick={() => void upload()}
                     style={{
                         ...primaryButton(!file || uploading),
                         width: '100%',
@@ -2432,8 +2522,21 @@ function UploadMode() {
                     ) : (
                         <Upload size={17} />
                     )}
-                    {uploading ? 'Uploading…' : 'Upload & read'}
+                    {uploading ? 'Reading…' : 'Read & start planning'}
                 </button>
+
+                {error && (
+                    <div
+                        style={{
+                            marginTop: 12,
+                            fontSize: 13,
+                            color: C.danger,
+                            textAlign: 'center',
+                        }}
+                    >
+                        {error}
+                    </div>
+                )}
             </div>
         </div>
     );

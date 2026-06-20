@@ -186,9 +186,11 @@ class TaskPlanningAgent
               - Assign each task to the worker whose role best fits it (a technician handles AV and tech; front-desk
                 or coordinator staff handle registration and guests; setup/management staff handle the room and
                 logistics, etc.). Spread the work fairly — do not pile everything on one person.
-              - For EACH task, call api_tool with action "create_task": give a clear name, a short description, the
-                phase, the worker_id, and due_offset_hours relative to the event start (negative = before the event,
-                positive = after it ends).
+              - For EACH task, call api_tool with action "create_task" and make it genuinely detailed: a clear name,
+                a short description, the phase, the worker_id, due_offset_hours relative to the event start
+                (negative = before, positive = after), a priority (low/medium/high/urgent), a realistic
+                estimated_minutes, the location in the venue, a concrete step-by-step checklist (3–6 steps), and the
+                resources/equipment needed. Detailed, specific tasks — never vague one-liners.
               - Create ALL the tasks by calling api_tool repeatedly. When every task is created, reply with a single
                 short sentence summarising the plan. Do NOT ask questions — just act.
             PROMPT;

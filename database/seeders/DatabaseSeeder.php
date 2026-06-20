@@ -67,5 +67,8 @@ class DatabaseSeeder extends Seeder
 
         // A demo organizer with a portfolio of booked events for "My events".
         $this->call(OrganizationPortfolioSeeder::class);
+
+        // Default floor-plan positions for any venue not yet pinned.
+        $this->call(SpaceMapDefaultsSeeder::class);
     }
 }

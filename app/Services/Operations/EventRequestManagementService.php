@@ -19,6 +19,7 @@ use App\Notifications\EventRequestRejected;
 use App\Services\ActivityLogService;
 use App\Support\OperationalAccess;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -112,7 +113,7 @@ class EventRequestManagementService
             throw new RuntimeException('This event request has already been converted.');
         }
 
-        return DB::transaction(function () use ($user, $eventRequest): Event {
+        $event = DB::transaction(function () use ($user, $eventRequest): Event {
             $event = Event::query()->create([
                 'title' => $eventRequest->title,
                 'description' => $eventRequest->description,
@@ -145,12 +146,14 @@ class EventRequestManagementService
             // Save the accept decision for the agent to learn from.
             $this->recordDecision($user, $eventRequest, $event, 'accepted', null);
 
-            // Let the organizer who submitted the request know it was accepted
-            // (in-app notification + email).
-            $eventRequest->submitter?->notify(new EventRequestAccepted($eventRequest, $event));
-
             return $event->load(['creator:id,name', 'eventRequest:id,title,status']);
         });
+
+        // After the booking is safely committed, tell the organizer (in-app +
+        // email). A mail failure must never undo the acceptance.
+        $this->notifyQuietly($eventRequest, new EventRequestAccepted($eventRequest, $event));
+
+        return $event;
     }
 
     /**
@@ -167,7 +170,7 @@ class EventRequestManagementService
             throw new RuntimeException('This event request has already been accepted and cannot be declined.');
         }
 
-        return DB::transaction(function () use ($user, $eventRequest, $reason): EventRequest {
+        $fresh = DB::transaction(function () use ($user, $eventRequest, $reason): EventRequest {
             $eventRequest->update(['status' => EventRequestStatus::Rejected->value]);
 
             $this->activityLog->record(
@@ -180,10 +183,25 @@ class EventRequestManagementService
 
             $this->recordDecision($user, $eventRequest, null, 'rejected', $reason);
 
-            $eventRequest->submitter?->notify(new EventRequestRejected($eventRequest, $reason));
-
             return $eventRequest->fresh(['submitter:id,name,email', 'matchedSpace:id,name']);
         });
+
+        $this->notifyQuietly($eventRequest, new EventRequestRejected($eventRequest, $reason));
+
+        return $fresh;
+    }
+
+    /**
+     * Notify the request's submitter without ever letting a delivery failure
+     * (e.g. an email outage) bubble up and break the operation.
+     */
+    private function notifyQuietly(EventRequest $eventRequest, Notification $notification): void
+    {
+        try {
+            $eventRequest->submitter?->notify($notification);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**
@@ -195,6 +213,12 @@ class EventRequestManagementService
         $amount = $eventRequest->price_agreed !== null ? (float) $eventRequest->price_agreed : 0.0;
 
         if ($user->tenant_id === null || $amount <= 0) {
+            return;
+        }
+
+        // Count the money exactly once: never book a second invoice for the
+        // same event, even if approval is somehow retried.
+        if (Invoice::query()->where('event_id', $event->id)->exists()) {
             return;
         }
 

@@ -31,7 +31,7 @@ class TaskManagementService
         }
 
         $query = Task::query()
-            ->with(['event:id,title', 'worker:id,name'])
+            ->with(['event:id,title,event_type,start_time', 'worker:id,name,worker_role'])
             ->latest();
 
         if (! OperationalAccess::managesEvents($user)) {
@@ -179,10 +179,21 @@ class TaskManagementService
             'state_label' => $task->state->label(),
             'phase' => $task->phase->value,
             'phase_label' => $task->phase->label(),
+            'priority' => $task->priority->value,
+            'priority_label' => $task->priority->label(),
+            'estimated_minutes' => $task->estimated_minutes,
+            'location' => $task->location,
+            'checklist' => $task->checklist ?? [],
+            'resources' => $task->resources ?? [],
             'due_at' => $task->due_at?->toIso8601String(),
+            'created_at' => $task->created_at?->toIso8601String(),
             'user_id' => $task->user_id,
-            'worker' => $task->relationLoaded('worker') ? $task->worker?->only(['id', 'name']) : null,
-            'event' => $task->relationLoaded('event') ? $task->event?->only(['id', 'title']) : null,
+            'worker' => $task->relationLoaded('worker')
+                ? $task->worker?->only(['id', 'name', 'worker_role'])
+                : null,
+            'event' => $task->relationLoaded('event')
+                ? $task->event?->only(['id', 'title', 'event_type', 'start_time'])
+                : null,
         ];
     }
 }
