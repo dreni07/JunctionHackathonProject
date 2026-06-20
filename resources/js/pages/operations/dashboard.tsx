@@ -6,6 +6,7 @@ import {
     CalendarDays,
     CheckCircle2,
     ClipboardList,
+    Layers,
     LayoutDashboard,
     ListChecks,
     LogOut,
@@ -549,6 +550,34 @@ export default function OperationsDashboard() {
                     >
                         <MapPin size={17} color={C.muted} />
                         Map setup
+                    </button>
+                )}
+                {can('spaces.view') && (
+                    <button
+                        type="button"
+                        className="ops-nav"
+                        onClick={() => {
+                            setSidebarOpen(false);
+                            router.visit('/operations/venue-map');
+                        }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 11,
+                            width: '100%',
+                            padding: '9px 10px',
+                            borderRadius: 9,
+                            border: 'none',
+                            background: 'transparent',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: '#3A3A3A',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                        }}
+                    >
+                        <Layers size={17} color={C.muted} />
+                        Floor Explorer
                     </button>
                 )}
                 <button
