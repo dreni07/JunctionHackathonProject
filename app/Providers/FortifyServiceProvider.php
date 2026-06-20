@@ -7,7 +7,6 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Controllers\Auth\LegacyEmailVerificationLinkController;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
-use App\Services\EmailVerificationCodeService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -72,40 +71,6 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
-        Fortify::verifyEmailView(function (Request $request) {
-            $user = $request->user();
-            $mailFailed = false;
-
-            if ($user !== null && ! $user->hasVerifiedEmail()) {
-                $codes = app(EmailVerificationCodeService::class);
-
-                if (! $codes->hasActiveCode($user)) {
-                    try {
-                        $user->sendEmailVerificationNotification();
-                    } catch (\Throwable $exception) {
-                        report($exception);
-                        $mailFailed = true;
-                    }
-                }
-            }
-
-            $status = $request->session()->get('status');
-
-            if ($mailFailed && $status === null) {
-                $status = 'verification-mail-failed';
-            }
-
-            return Inertia::render('auth/verify-email', [
-                'status' => $status,
-                // Seconds the user must wait before another email can be sent
-                // (60 right after a send, 0 once the window has elapsed). The key
-                // mirrors how the throttle middleware stores a named limiter.
-                'resendCooldown' => RateLimiter::availableIn(
-                    md5('verification'.($request->user() !== null ? (string) $request->user()->id : $request->ip())),
-                ),
-            ]);
-        });
-
         Fortify::registerView(fn () => Inertia::render('auth/register', [
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
         ]));
@@ -134,15 +99,6 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by(
                 ($request->input('credential.id') ?: $request->session()->getId()).'|'.$request->ip(),
             );
-        });
-
-        // Allow at most one verification email per 60 seconds, per user.
-        // Hitting this returns HTTP 429 with a Retry-After header that the
-        // verify-email screen reads to drive its resend countdown.
-        RateLimiter::for('verification', function (Request $request) {
-            $key = $request->user() !== null ? (string) $request->user()->id : $request->ip();
-
-            return Limit::perMinute(1)->by($key);
         });
     }
 }

@@ -4,7 +4,6 @@ import {
     CalendarHeart,
     FileUp,
     FolderGit2,
-    LayoutGrid,
     Sparkles,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
@@ -20,15 +19,9 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
     {
         title: 'Plan an event',
         href: '/planner',
@@ -66,7 +59,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href="/planner" prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>

@@ -33,7 +33,6 @@ test('operational workers are redirected away from organization event routes', f
         ->assertRedirect(route('operations.home'));
 })->with([
     'my-events.index',
-    'dashboard',
     'notifications.index',
 ]);
 
@@ -46,7 +45,6 @@ test('unverified organization accounts can access protected organization routes'
 })->with([
     'planner',
     'my-events.index',
-    'dashboard',
 ]);
 
 test('unverified operational workers can open the operations dashboard', function (): void {
