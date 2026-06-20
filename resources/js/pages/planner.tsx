@@ -4,11 +4,14 @@ import {
     ArrowUp,
     CalendarClock,
     Check,
+    ChevronDown,
     Clock,
     Euro,
     FileText,
+    Home as HomeIcon,
     Loader2,
     LogIn,
+    LogOut,
     MapPin,
     MessageSquare,
     Mic,
@@ -18,17 +21,15 @@ import {
     Triangle,
     Upload,
     UploadCloud,
+    UserRoundPen,
     Users,
     Volume2,
     X,
     type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { PyramidMap } from '@/components/pyramid-map';
 import type { Auth } from '@/types';
-
-/** The Pyramid floor plan used to show an organizer where their venue sits. */
-const PYRAMID_PLAN_SRC = '/assets/pyramid-plan.png';
 
 /* Landing-page palette — keep the studio consistent with the marketing site. */
 const C = {
@@ -84,6 +85,7 @@ const css = `
 @media(max-width:860px){.pl-bento-card{grid-column:span 12}}
 @media(max-width:640px){.pl-header-sub,.pl-header-divider{display:none!important}}
 @media(min-width:641px){.pl-user-name{display:inline!important}}
+@media(min-width:900px){.pl-header-action.pl-header-sub{display:inline-flex!important}}
 @keyframes pl-rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 .pl-rise{animation:pl-rise .55s cubic-bezier(.2,.8,.2,1) both}
 @keyframes pl-pulse{0%{transform:scale(1);opacity:.55}70%{transform:scale(2.1);opacity:0}100%{opacity:0}}
@@ -100,9 +102,558 @@ const css = `
 @keyframes pl-modal-in{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
 .pl-modal-bg{animation:pl-fade .2s ease}
 .pl-modal-card{animation:pl-modal-in .26s cubic-bezier(.2,.8,.2,1)}
+.pl-header{position:sticky;top:0;z-index:40;border-bottom:1px solid ${C.borderSoft};background:rgba(255,255,255,.78);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);box-shadow:0 1px 0 rgba(255,255,255,.65) inset,0 8px 28px -22px rgba(26,26,26,.12)}
+.pl-header-brand{transition:transform .22s ease,opacity .22s ease}
+.pl-header-brand:hover{transform:translateY(-1px);opacity:.92}
+.pl-header-nav{display:inline-flex;align-items:center;gap:4px;padding:5px;border-radius:999px;background:color-mix(in srgb,${C.cream} 88%,#fff);border:1px solid ${C.borderSoft}}
+.pl-header-nav-item{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;border:none;background:transparent;font-family:inherit;font-size:13px;font-weight:600;color:${C.muted};cursor:pointer;white-space:nowrap;transition:background .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
+.pl-header-nav-item:hover:not(.is-active){color:${C.ink};background:rgba(255,255,255,.72)}
+.pl-header-nav-item.is-active{background:${C.card};color:${C.green};box-shadow:0 4px 14px -8px rgba(16,130,91,.35),0 1px 0 rgba(255,255,255,.8) inset}
+.pl-header-nav-item:active{transform:scale(.98)}
+.pl-header-action{transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease}
+.pl-header-action:hover{background:${C.cream};border-color:color-mix(in srgb,${C.green} 28%,${C.border});transform:translateY(-1px)}
+.pl-header-action.is-open{background:${C.greenTint};border-color:color-mix(in srgb,${C.green} 35%,${C.border})}
+.pl-header-menu{position:absolute;right:0;top:calc(100% + 10px);min-width:260px;border-radius:18px;border:1px solid ${C.borderSoft};background:${C.card};box-shadow:0 24px 60px -28px rgba(26,26,26,.28);padding:8px;animation:pl-modal-in .22s cubic-bezier(.2,.8,.2,1);transform-origin:top right}
+.pl-header-menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:12px;border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:500;color:${C.ink};cursor:pointer;text-decoration:none;transition:background .15s ease,color .15s ease;text-align:left}
+.pl-header-menu-item:hover{background:${C.cream}}
+.pl-header-menu-item.is-danger{color:${C.danger}}
+.pl-header-menu-item.is-danger:hover{background:rgba(180,69,58,.08)}
+.pl-header-progress{height:6px;border-radius:999px;background:${C.cream};overflow:hidden}
+.pl-header-progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,${C.green},${C.greenDark});transition:width .35s ease}
+.pl-header-nav-row{display:none;padding:0 clamp(14px,3vw,28px) 12px}
+@media(max-width:820px){.pl-header-center{display:none!important}.pl-header-nav-row{display:block}}
+@media(min-width:821px){.pl-header-nav-row{display:none!important}}
 `;
 
 type Mode = 'home' | 'voice' | 'chat' | 'upload';
+
+const MODE_NAV: {
+    mode: Mode;
+    label: string;
+    icon: LucideIcon;
+}[] = [
+    { mode: 'home', label: 'Studio', icon: HomeIcon },
+    { mode: 'voice', label: 'Voice', icon: Mic },
+    { mode: 'chat', label: 'Chat', icon: MessageSquare },
+    { mode: 'upload', label: 'Brief', icon: Upload },
+];
+
+function PlannerHeader({
+    mode,
+    onModeChange,
+    user,
+    profileCompletion,
+    initials,
+}: {
+    mode: Mode;
+    onModeChange: (mode: Mode) => void;
+    user: Auth['user'] | null;
+    profileCompletion: number | null;
+    initials: string | null;
+}) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!menuOpen) {
+            return;
+        }
+
+        const onPointerDown = (event: MouseEvent) => {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node)
+            ) {
+                setMenuOpen(false);
+            }
+        };
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            document.removeEventListener('mousedown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [menuOpen]);
+
+    const modeNav = (
+        <nav
+            className="pl-header-nav"
+            aria-label="Planner modes"
+            role="tablist"
+        >
+            {MODE_NAV.map((item) => {
+                const active = mode === item.mode;
+
+                return (
+                    <button
+                        key={item.mode}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        className={`pl-header-nav-item${active ? ' is-active' : ''}`}
+                        onClick={() => onModeChange(item.mode)}
+                    >
+                        <item.icon size={15} />
+                        {item.label}
+                    </button>
+                );
+            })}
+        </nav>
+    );
+
+    return (
+        <header className="pl-header">
+            <div
+                style={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    padding: '12px clamp(14px,3vw,28px)',
+                }}
+            >
+                <Link
+                    href="/"
+                    className="pl-header-brand"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        textDecoration: 'none',
+                        color: C.ink,
+                        minWidth: 0,
+                    }}
+                >
+                    <span
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 38,
+                            height: 38,
+                            flex: 'none',
+                            borderRadius: 12,
+                            background: `linear-gradient(145deg, ${C.green}, ${C.greenDark})`,
+                            boxShadow: '0 10px 24px -12px rgba(16,130,91,0.55)',
+                        }}
+                    >
+                        <Triangle size={16} fill="#fff" color="#fff" />
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                        <span
+                            style={{
+                                display: 'block',
+                                fontWeight: 800,
+                                letterSpacing: '0.06em',
+                                fontSize: 13.5,
+                                lineHeight: 1.1,
+                            }}
+                        >
+                            PIRAMIDA
+                        </span>
+                        <span
+                            className="pl-header-sub"
+                            style={{
+                                display: 'block',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: C.muted,
+                                marginTop: 2,
+                            }}
+                        >
+                            AI Event Planner
+                        </span>
+                    </span>
+                </Link>
+
+                <div
+                    className="pl-header-center"
+                    style={{
+                        position: 'absolute',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                    }}
+                >
+                    {modeNav}
+                </div>
+
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginLeft: 'auto',
+                    }}
+                >
+                    {user ? (
+                        <>
+                            {profileCompletion !== null &&
+                                profileCompletion < 100 && (
+                                    <Link
+                                        href="/profile/complete"
+                                        className="pl-header-action pl-header-sub"
+                                        style={{
+                                            display: 'none',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            padding: '8px 12px',
+                                            borderRadius: 999,
+                                            border: `1px solid ${C.borderSoft}`,
+                                            background: C.card,
+                                            color: C.green,
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            textDecoration: 'none',
+                                        }}
+                                    >
+                                        <UserRoundPen size={14} />
+                                        {profileCompletion}%
+                                    </Link>
+                                )}
+                            <div
+                                ref={menuRef}
+                                style={{ position: 'relative' }}
+                            >
+                                <button
+                                    type="button"
+                                    aria-haspopup="menu"
+                                    aria-expanded={menuOpen}
+                                    className={`pl-header-action${menuOpen ? ' is-open' : ''}`}
+                                    onClick={() => setMenuOpen((open) => !open)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        padding: '6px 8px 6px 6px',
+                                        borderRadius: 999,
+                                        border: `1px solid ${C.borderSoft}`,
+                                        background: C.card,
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            position: 'relative',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: 36,
+                                            height: 36,
+                                            borderRadius: '50%',
+                                            overflow: 'hidden',
+                                            background: user.avatar
+                                                ? undefined
+                                                : `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
+                                            color: '#fff',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        {user.avatar ? (
+                                            <img
+                                                src={user.avatar}
+                                                alt=""
+                                                style={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover',
+                                                }}
+                                            />
+                                        ) : (
+                                            initials
+                                        )}
+                                        {profileCompletion !== null &&
+                                            profileCompletion < 100 && (
+                                                <span
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: -1,
+                                                        bottom: -1,
+                                                        width: 10,
+                                                        height: 10,
+                                                        borderRadius: '50%',
+                                                        background: C.amber,
+                                                        border: `2px solid ${C.card}`,
+                                                    }}
+                                                    title="Profile incomplete"
+                                                />
+                                            )}
+                                    </span>
+                                    <span
+                                        className="pl-user-name"
+                                        style={{
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                            color: C.ink,
+                                            maxWidth: 120,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {user.name}
+                                    </span>
+                                    <ChevronDown
+                                        size={15}
+                                        color={C.muted}
+                                        style={{
+                                            transition: 'transform .2s ease',
+                                            transform: menuOpen
+                                                ? 'rotate(180deg)'
+                                                : undefined,
+                                        }}
+                                    />
+                                </button>
+
+                                {menuOpen && (
+                                    <div
+                                        className="pl-header-menu"
+                                        role="menu"
+                                    >
+                                        <div
+                                            style={{
+                                                padding: '10px 12px 12px',
+                                                borderBottom: `1px solid ${C.borderSoft}`,
+                                                marginBottom: 6,
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    fontSize: 14,
+                                                    fontWeight: 700,
+                                                }}
+                                            >
+                                                {user.name}
+                                            </div>
+                                            <div
+                                                style={{
+                                                    fontSize: 12.5,
+                                                    color: C.muted,
+                                                    marginTop: 2,
+                                                }}
+                                            >
+                                                {user.email}
+                                            </div>
+                                            {profileCompletion !== null &&
+                                                profileCompletion < 100 && (
+                                                    <div
+                                                        style={{ marginTop: 12 }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                display: 'flex',
+                                                                justifyContent:
+                                                                    'space-between',
+                                                                fontSize: 11.5,
+                                                                fontWeight: 600,
+                                                                color: C.muted,
+                                                                marginBottom: 6,
+                                                            }}
+                                                        >
+                                                            <span>
+                                                                Profile
+                                                            </span>
+                                                            <span
+                                                                style={{
+                                                                    color: C.green,
+                                                                }}
+                                                            >
+                                                                {profileCompletion}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="pl-header-progress">
+                                                            <div
+                                                                className="pl-header-progress-bar"
+                                                                style={{
+                                                                    width: `${profileCompletion}%`,
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                        </div>
+                                        <Link
+                                            href="/profile/complete"
+                                            className="pl-header-menu-item"
+                                            role="menuitem"
+                                            onClick={() => setMenuOpen(false)}
+                                        >
+                                            <UserRoundPen size={16} />
+                                            {profileCompletion !== null &&
+                                            profileCompletion < 100
+                                                ? 'Complete profile'
+                                                : 'Edit profile'}
+                                        </Link>
+                                        <button
+                                            type="button"
+                                            className="pl-header-menu-item is-danger"
+                                            role="menuitem"
+                                            onClick={() => {
+                                                setMenuOpen(false);
+                                                router.post('/logout');
+                                            }}
+                                        >
+                                            <LogOut size={16} />
+                                            Sign out
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <Link
+                                href="/login"
+                                className="pl-header-action"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 7,
+                                    padding: '9px 16px',
+                                    borderRadius: 999,
+                                    border: `1px solid ${C.border}`,
+                                    background: C.card,
+                                    color: C.ink,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    textDecoration: 'none',
+                                }}
+                            >
+                                <LogIn size={15} />
+                                Sign in
+                            </Link>
+                            <Link
+                                href="/register"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 7,
+                                    padding: '9px 16px',
+                                    borderRadius: 999,
+                                    border: 'none',
+                                    background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
+                                    color: '#fff',
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    textDecoration: 'none',
+                                    boxShadow:
+                                        '0 12px 28px -12px rgba(16,130,91,0.55)',
+                                    transition:
+                                        'transform .2s ease, box-shadow .2s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform =
+                                        'translateY(-1px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = '';
+                                }}
+                            >
+                                Get started
+                            </Link>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="pl-header-nav-row">{modeNav}</div>
+        </header>
+    );
+}
+
+function ProfileCompletionBanner({ completion }: { completion: number }) {
+    const [dismissed, setDismissed] = useState(false);
+
+    if (dismissed || completion >= 100) {
+        return null;
+    }
+
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                margin: '0 clamp(18px,3vw,28px)',
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: `1px solid ${C.greenTint}`,
+                background: C.card,
+                boxShadow: '0 10px 28px -24px rgba(16,130,91,0.35)',
+            }}
+        >
+            <span
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 38,
+                    height: 38,
+                    flex: 'none',
+                    borderRadius: '50%',
+                    background: C.greenTint,
+                    color: C.green,
+                }}
+            >
+                <UserRoundPen size={17} />
+            </span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>
+                    Complete your profile
+                </div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
+                    Add a photo and a few details — your profile is {completion}%
+                    complete.
+                </div>
+            </div>
+            <Link
+                href="/profile/complete"
+                style={{
+                    flex: 'none',
+                    padding: '8px 14px',
+                    borderRadius: 999,
+                    background: C.green,
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                }}
+            >
+                Complete now
+            </Link>
+            <button
+                type="button"
+                onClick={() => setDismissed(true)}
+                aria-label="Dismiss"
+                style={{
+                    flex: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 28,
+                    height: 28,
+                    border: 'none',
+                    borderRadius: 8,
+                    background: 'transparent',
+                    color: C.muted,
+                    cursor: 'pointer',
+                }}
+            >
+                <X size={16} />
+            </button>
+        </div>
+    );
+}
 
 /* CSRF-aware fetch helper (Laravel reads the X-XSRF-TOKEN header). */
 function csrfToken(): string {
@@ -133,8 +684,47 @@ async function postJson(url: string, payload: unknown): Promise<Response> {
     });
 }
 
+type AgentMode = 'advisor' | 'intake';
+
+type AgentResult = {
+    reply: string;
+    review: EventDetails | null;
+    submitted: { id: string; status: string; price?: number | null } | null;
+    ended: boolean;
+};
+
+/**
+ * The single entry point into the planner's agentic model — the same advisor →
+ * intake loop, tools, and venue/pricing review for EVERY surface (voice, chat,
+ * document). `modeRef` carries which agent is in charge across turns.
+ */
+async function runPlannerAgent(
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    modeRef: { current: AgentMode },
+): Promise<AgentResult> {
+    const response = await postJson('/planner/agent', {
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        mode: modeRef.current,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.message || 'Agent error.');
+    }
+    if (data.mode === 'advisor' || data.mode === 'intake') {
+        modeRef.current = data.mode;
+    }
+    return {
+        reply: String(data.reply || ''),
+        review: data.review ?? null,
+        submitted: data.submitted ?? null,
+        ended: Boolean(data.ended),
+    };
+}
+
 export default function Planner() {
     const [mode, setMode] = useState<Mode>('home');
+    // Text extracted from an uploaded brief, handed straight to the chat agent.
+    const [chatSeed, setChatSeed] = useState<string | null>(null);
     const { auth } = usePage<{ auth: Auth }>().props;
     const user = auth.user;
     const initials = user?.name
@@ -173,131 +763,17 @@ export default function Planner() {
             </Head>
             <style dangerouslySetInnerHTML={{ __html: css }} />
 
-            {/* ===== TOP BAR ===== */}
-            <header
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '14px clamp(18px,3vw,28px)',
-                    borderBottom: `1px solid ${C.borderSoft}`,
-                    background: 'rgba(255,255,255,0.88)',
-                    backdropFilter: 'blur(12px)',
-                }}
-            >
-                <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 14 }}
-                >
-                    <Link
-                        href="/"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 11,
-                            textDecoration: 'none',
-                            color: C.ink,
-                        }}
-                    >
-                        <span
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 34,
-                                height: 34,
-                                borderRadius: 10,
-                                background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-                            }}
-                        >
-                            <Triangle size={15} fill="#fff" color="#fff" />
-                        </span>
-                        <span
-                            style={{
-                                fontWeight: 800,
-                                letterSpacing: '0.05em',
-                                fontSize: 14,
-                            }}
-                        >
-                            PIRAMIDA
-                        </span>
-                    </Link>
-                    <span
-                        className="pl-header-divider"
-                        style={{
-                            width: 1,
-                            height: 22,
-                            background: C.border,
-                        }}
-                    />
-                    <span
-                        className="pl-header-sub"
-                        style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: C.muted,
-                        }}
-                    >
-                        AI Event Planner
-                    </span>
-                </div>
+            <PlannerHeader
+                mode={mode}
+                onModeChange={setMode}
+                user={user}
+                profileCompletion={auth.profileCompletion}
+                initials={initials}
+            />
 
-                <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}
-                >
-                    {user ? (
-                        <>
-                            <span
-                                style={{
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    color: C.muted,
-                                }}
-                                className="pl-user-name"
-                            >
-                                {user.name}
-                            </span>
-                            <span
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: 38,
-                                    height: 38,
-                                    borderRadius: '50%',
-                                    background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-                                    color: '#fff',
-                                    fontSize: 13,
-                                    fontWeight: 700,
-                                }}
-                                title={user.name}
-                            >
-                                {initials}
-                            </span>
-                        </>
-                    ) : (
-                        <Link
-                            href="/login"
-                            className="pl-nav-link"
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 7,
-                                padding: '8px 14px',
-                                borderRadius: 999,
-                                border: `1px solid ${C.border}`,
-                                background: C.card,
-                                color: C.ink,
-                                fontSize: 13,
-                                fontWeight: 600,
-                                textDecoration: 'none',
-                            }}
-                        >
-                            <LogIn size={15} />
-                            Sign in
-                        </Link>
-                    )}
-                </div>
-            </header>
+            {user && auth.profileCompletion !== null && auth.profileCompletion < 100 && (
+                <ProfileCompletionBanner completion={auth.profileCompletion} />
+            )}
 
             {/* ===== BODY ===== */}
             <div
@@ -308,38 +784,31 @@ export default function Planner() {
                     minHeight: 0,
                 }}
             >
-                {mode !== 'home' && (
-                    <div style={{ padding: '14px 26px 0' }}>
-                        <button
-                            type="button"
-                            className="pl-ghost"
-                            onClick={() => setMode('home')}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '7px 12px',
-                                borderRadius: 9,
-                                border: 'none',
-                                background: 'transparent',
-                                color: C.muted,
-                                fontSize: 14,
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                            }}
-                        >
-                            <ArrowLeft size={16} />
-                            Back
-                        </button>
-                    </div>
+                {mode === 'home' && (
+                    <Home
+                        onSelect={(m) => {
+                            setChatSeed(null);
+                            setMode(m);
+                        }}
+                    />
                 )}
-
-                {mode === 'home' && <Home onSelect={setMode} />}
                 {mode === 'voice' && (
                     <VoiceMode onExit={() => setMode('home')} />
                 )}
-                {mode === 'chat' && <ChatMode />}
-                {mode === 'upload' && <UploadMode />}
+                {mode === 'chat' && (
+                    <ChatMode
+                        initialMessage={chatSeed ?? undefined}
+                        initialMode={chatSeed ? 'intake' : 'advisor'}
+                    />
+                )}
+                {mode === 'upload' && (
+                    <UploadMode
+                        onExtracted={(text) => {
+                            setChatSeed(text);
+                            setMode('chat');
+                        }}
+                    />
+                )}
             </div>
         </div>
     );
@@ -619,32 +1088,40 @@ function kleopatraSrc(phase: ConvoPhase): string {
     return KLEOPATRA.hello; // speaking, idle, error
 }
 
-/** Round Kleopatra portrait used wherever the agent is represented. */
+function kleopatraFrameStyle(size: number): CSSProperties {
+    return {
+        position: 'relative',
+        width: size,
+        height: size,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
+        borderRadius: 0,
+        boxShadow: 'none',
+    };
+}
+
+function kleopatraImageStyle(size: number): CSSProperties {
+    return {
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        background: 'transparent',
+        border: 'none',
+        borderRadius: 0,
+        boxShadow: 'none',
+    };
+}
+
+/** Kleopatra portrait used wherever the agent is represented. */
 function Orb({ size = 92, phase }: { size?: number; phase?: ConvoPhase }) {
     return (
-        <div style={{ position: 'relative', width: size, height: size }}>
-            <div
-                style={{
-                    position: 'absolute',
-                    inset: -16,
-                    borderRadius: '50%',
-                    background:
-                        'radial-gradient(circle, rgba(16,130,91,0.3), transparent 70%)',
-                    filter: 'blur(16px)',
-                }}
-            />
+        <div style={kleopatraFrameStyle(size)}>
             <img
                 src={kleopatraSrc(phase ?? 'idle')}
                 alt="Kleopatra"
-                style={{
-                    position: 'relative',
-                    width: size,
-                    height: size,
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    border: '2px solid rgba(255,255,255,0.85)',
-                    boxShadow: '0 12px 30px -14px rgba(10,30,20,0.5)',
-                }}
+                style={kleopatraImageStyle(size)}
             />
         </div>
     );
@@ -671,7 +1148,7 @@ type EventDetails = {
         capacity?: number;
         functional_type?: string;
         confidence?: number;
-        location_geometry?: { x: number; y: number } | null;
+        location_geometry?: { x: number; y: number; level?: number } | null;
     } | null;
     pricing?: {
         price_per_sqm?: number;
@@ -840,36 +1317,8 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
         return String(data.text || '');
     };
 
-    const agentTurn = async (
-        history: VoiceTurn[],
-    ): Promise<{
-        reply: string;
-        review: EventDetails | null;
-        submitted: { id: string; status: string; price?: number | null } | null;
-        ended: boolean;
-    }> => {
-        const response = await postJson('/planner/agent', {
-            messages: history.map((turn) => ({
-                role: turn.role,
-                content: turn.content,
-            })),
-            mode: agentModeRef.current,
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(data.message || 'Agent error.');
-        }
-        // Persist which agent is now in charge (advisor → intake handoff).
-        if (data.mode === 'advisor' || data.mode === 'intake') {
-            agentModeRef.current = data.mode;
-        }
-        return {
-            reply: String(data.reply || ''),
-            review: data.review ?? null,
-            submitted: data.submitted ?? null,
-            ended: Boolean(data.ended),
-        };
-    };
+    const agentTurn = (history: VoiceTurn[]): Promise<AgentResult> =>
+        runPlannerAgent(history, agentModeRef);
 
     // After the agent finishes speaking, either hang up (if the agent chose to
     // end the call) or go back to listening.
@@ -1195,7 +1644,6 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                     type="button"
                     onClick={() => void begin()}
                     aria-label="Start the conversation"
-                    className="pl-card"
                     style={{
                         position: 'relative',
                         display: 'flex',
@@ -1203,25 +1651,18 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                         justifyContent: 'center',
                         width: 120,
                         height: 120,
-                        borderRadius: '50%',
                         padding: 0,
                         border: 'none',
                         cursor: 'pointer',
                         background: 'transparent',
+                        borderRadius: 0,
+                        boxShadow: 'none',
                     }}
                 >
                     <img
                         src={KLEOPATRA.hello}
                         alt="Kleopatra"
-                        style={{
-                            width: 120,
-                            height: 120,
-                            borderRadius: '50%',
-                            objectFit: 'cover',
-                            border: '3px solid #fff',
-                            boxShadow:
-                                '0 20px 44px -18px rgba(16,130,91,0.6)',
-                        }}
+                        style={kleopatraImageStyle(120)}
                     />
                     <span
                         style={{
@@ -1313,28 +1754,13 @@ function VoiceMode({ onExit }: { onExit: () => void }) {
                             ? 'pl-breathe'
                             : undefined
                     }
-                    style={{
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 104,
-                        height: 104,
-                        borderRadius: '50%',
-                    }}
+                    style={kleopatraFrameStyle(104)}
                 >
                     {phase === 'listening' && <span className="pl-mic-ping" />}
                     <img
                         src={kleopatraSrc(phase)}
                         alt="Kleopatra"
-                        style={{
-                            width: 104,
-                            height: 104,
-                            borderRadius: '50%',
-                            objectFit: 'cover',
-                            border: '2px solid rgba(255,255,255,0.9)',
-                            boxShadow: '0 14px 32px -16px rgba(10,30,20,0.55)',
-                        }}
+                        style={kleopatraImageStyle(104)}
                     />
                 </span>
             </div>
@@ -1536,12 +1962,31 @@ type ChatMessage = {
     tools?: string[];
 };
 
-function ChatMode({ initialInput = '' }: { initialInput?: string }) {
+function ChatMode({
+    initialInput = '',
+    initialMessage,
+    initialMode = 'advisor',
+}: {
+    initialInput?: string;
+    initialMessage?: string;
+    initialMode?: AgentMode;
+}) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState(initialInput);
     const [sending, setSending] = useState(false);
     const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+    const [review, setReview] = useState<EventDetails | null>(null);
+    const [reviewOpen, setReviewOpen] = useState(false);
+    const [submitted, setSubmitted] = useState<{
+        id: string;
+        status: string;
+        price?: number | null;
+    } | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
+    // Same agent state as the voice flow: starts with the advisor, hands over
+    // to the booking (intake) agent when the visitor wants to organize.
+    const agentModeRef = useRef<AgentMode>(initialMode);
+    const seededRef = useRef(false);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({
@@ -1550,53 +1995,57 @@ function ChatMode({ initialInput = '' }: { initialInput?: string }) {
         });
     }, [messages, sending]);
 
-    const send = async () => {
-        const text = input.trim();
-        if (text === '' || sending) {
-            return;
-        }
-
-        const next: ChatMessage[] = [
-            ...messages,
-            { role: 'user', content: text },
-        ];
+    // Run one turn of the SAME planner agent the voice mode uses.
+    const turn = async (next: ChatMessage[]) => {
         setMessages(next);
-        setInput('');
         setSending(true);
-
         try {
-            const response = await postJson('/chat', {
-                messages: next.map((m) => ({
-                    role: m.role,
-                    content: m.content,
-                })),
-            });
-            const data = await response.json().catch(() => ({}));
-
+            const result = await runPlannerAgent(next, agentModeRef);
+            if (result.submitted) {
+                setSubmitted(result.submitted);
+                setReview(null);
+                setReviewOpen(false);
+            } else if (result.review) {
+                setReview(result.review);
+                setReviewOpen(true);
+            }
             setMessages((current) => [
                 ...current,
                 {
                     role: 'assistant',
-                    content: response.ok
-                        ? String(data.reply || '')
-                        : data.message || 'Something went wrong.',
-                    tools: Array.isArray(data.tools_used)
-                        ? data.tools_used
-                        : undefined,
+                    content:
+                        result.reply ||
+                        'Sorry, I had trouble responding. Could you try again?',
                 },
             ]);
         } catch {
             setMessages((current) => [
                 ...current,
-                {
-                    role: 'assistant',
-                    content: 'Network error. Please try again.',
-                },
+                { role: 'assistant', content: 'Network error. Please try again.' },
             ]);
         } finally {
             setSending(false);
         }
     };
+
+    const send = async () => {
+        const text = input.trim();
+        if (text === '' || sending) {
+            return;
+        }
+        setInput('');
+        await turn([...messages, { role: 'user', content: text }]);
+    };
+
+    // Document flow: auto-send the extracted brief so the agent reads it and
+    // starts asking for whatever is still missing — reusing the same loop.
+    useEffect(() => {
+        if (initialMessage && !seededRef.current) {
+            seededRef.current = true;
+            void turn([{ role: 'user', content: initialMessage }]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialMessage]);
 
     const speak = async (text: string, index: number) => {
         try {
@@ -1833,33 +2282,85 @@ function ChatMode({ initialInput = '' }: { initialInput?: string }) {
                         <ArrowUp size={18} />
                     </button>
                 </div>
+                {submitted && (
+                    <div
+                        style={{
+                            marginTop: 10,
+                            padding: '10px 14px',
+                            borderRadius: 12,
+                            background: 'rgba(16,130,91,0.08)',
+                            color: C.green,
+                            fontSize: 13.5,
+                            fontWeight: 600,
+                            textAlign: 'center',
+                        }}
+                    >
+                        Your event request was submitted. We'll be in touch!
+                    </div>
+                )}
             </div>
+
+            {reviewOpen && review && !submitted && (
+                <ReviewModal
+                    review={review}
+                    onClose={() => setReviewOpen(false)}
+                />
+            )}
         </div>
     );
 }
 
 /* ============================ UPLOAD ============================ */
 
-function UploadMode() {
+function UploadMode({
+    onExtracted,
+}: {
+    onExtracted: (text: string) => void;
+}) {
     const [file, setFile] = useState<File | null>(null);
     const [over, setOver] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState('');
     const inputRef = useRef<HTMLInputElement | null>(null);
 
-    const upload = () => {
+    // Read the document's text, then hand it straight to the same planner agent
+    // (in the chat) so it can work from the brief and ask for anything missing.
+    const upload = async () => {
         if (!file || uploading) {
             return;
         }
 
         setUploading(true);
-        router.post(
-            '/documents',
-            { file },
-            {
-                forceFormData: true,
-                onFinish: () => setUploading(false),
-            },
-        );
+        setError('');
+
+        const isPdf =
+            file.type === 'application/pdf' ||
+            file.name.toLowerCase().endsWith('.pdf');
+        const form = new FormData();
+        form.append(isPdf ? 'document' : 'image', file);
+
+        try {
+            const response = await postForm(
+                isPdf ? '/ocr/document' : '/ocr',
+                form,
+            );
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Could not read the document.');
+            }
+            const text = String(data.response || '').trim();
+            if (text === '') {
+                throw new Error("We couldn't find any text in that file.");
+            }
+            onExtracted(
+                `Here is my event brief — please read it and set up the event:\n\n${text}`,
+            );
+        } catch (e) {
+            setError(
+                e instanceof Error ? e.message : 'Could not read the document.',
+            );
+            setUploading(false);
+        }
     };
 
     return (
@@ -2008,7 +2509,7 @@ function UploadMode() {
                     type="button"
                     className="pl-send"
                     disabled={!file || uploading}
-                    onClick={upload}
+                    onClick={() => void upload()}
                     style={{
                         ...primaryButton(!file || uploading),
                         width: '100%',
@@ -2021,8 +2522,21 @@ function UploadMode() {
                     ) : (
                         <Upload size={17} />
                     )}
-                    {uploading ? 'Uploading…' : 'Upload & read'}
+                    {uploading ? 'Reading…' : 'Read & start planning'}
                 </button>
+
+                {error && (
+                    <div
+                        style={{
+                            marginTop: 12,
+                            fontSize: 13,
+                            color: C.danger,
+                            textAlign: 'center',
+                        }}
+                    >
+                        {error}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -2322,9 +2836,12 @@ function ReviewModal({
                             }}
                         >
                             Where it is in the Pyramid
+                            {review.venue.location_geometry.level
+                                ? ` · floor ${review.venue.location_geometry.level}`
+                                : ''}
                         </div>
                         <PyramidMap
-                            src={PYRAMID_PLAN_SRC}
+                            src={`/assets/pyramid-plan-${review.venue.location_geometry.level ?? 1}.png`}
                             pins={[
                                 {
                                     id: 'venue',

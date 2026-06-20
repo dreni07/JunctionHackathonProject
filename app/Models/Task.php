@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\TaskPhase;
+use App\Enums\TaskPriority;
 use App\Enums\TaskState;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,11 @@ use InvalidArgumentException;
  * @property string|null $description
  * @property TaskState $state
  * @property TaskPhase $phase
+ * @property TaskPriority $priority
+ * @property int|null $estimated_minutes
+ * @property string|null $location
+ * @property array<int, string>|null $checklist
+ * @property array<int, string>|null $resources
  * @property Carbon|null $due_at
  */
 class Task extends Model
@@ -37,6 +43,11 @@ class Task extends Model
         'description',
         'state',
         'phase',
+        'priority',
+        'estimated_minutes',
+        'location',
+        'checklist',
+        'resources',
         'due_at',
     ];
 
@@ -48,6 +59,10 @@ class Task extends Model
         return [
             'state' => TaskState::class,
             'phase' => TaskPhase::class,
+            'priority' => TaskPriority::class,
+            'estimated_minutes' => 'integer',
+            'checklist' => 'array',
+            'resources' => 'array',
             'due_at' => 'datetime',
         ];
     }

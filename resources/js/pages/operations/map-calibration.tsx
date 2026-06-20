@@ -3,7 +3,9 @@ import {
     ArrowLeft,
     Check,
     ImageUp,
+    Layers,
     MapPin as MapPinIcon,
+    Plus,
     Trash2,
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
@@ -15,13 +17,22 @@ const C = {
     border: '#E0DCD3',
     borderSoft: '#EAE7DC',
     green: '#10825B',
+    greenDeep: '#0E6E4D',
     greenTint: '#D8E2DC',
     ink: '#1A1A1A',
     muted: '#6E6E6E',
     faint: '#9A958B',
 };
 
-type Geometry = { x: number; y: number } | null;
+const css = `
+.mc-range{-webkit-appearance:none;appearance:none;height:6px;border-radius:999px;background:${C.borderSoft};outline:none}
+.mc-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:${C.green};border:3px solid #fff;box-shadow:0 2px 6px rgba(16,130,91,.45);cursor:pointer}
+.mc-range::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:${C.green};border:3px solid #fff;cursor:pointer}
+.mc-btn{transition:background .15s ease,border-color .15s ease,transform .12s ease}
+.mc-btn:not(:disabled):hover{background:${C.cream}}
+`;
+
+type Geometry = { x: number; y: number; level?: number } | null;
 
 type Space = {
     id: string;
@@ -49,30 +60,59 @@ async function saveGeometry(spaceId: string, geometry: Geometry): Promise<void> 
             'Content-Type': 'application/json',
             'X-XSRF-TOKEN': csrf(),
         },
-        body: JSON.stringify(geometry ?? { x: null, y: null }),
+        body: JSON.stringify(geometry ?? { x: null, y: null, level: null }),
     });
 }
 
+const levelOf = (g: Geometry): number => g?.level ?? 1;
+
 export default function MapCalibration({
     spaces,
-    planUrl,
+    planUrls,
+    maxLevels,
 }: {
     spaces: Space[];
-    planUrl: string | null;
+    planUrls: Record<number, string | null>;
+    maxLevels: number;
 }) {
     const [items, setItems] = useState<Space[]>(spaces);
+    const [plans, setPlans] = useState<Record<number, string | null>>({
+        1: null,
+        2: null,
+        3: null,
+        ...planUrls,
+    });
+
+    // Which floors exist: any with an image, any a venue is pinned on, plus 1.
+    const initialFloors = useMemo(() => {
+        const set = new Set<number>([1]);
+        Object.entries(planUrls).forEach(([lvl, url]) => {
+            if (url) set.add(Number(lvl));
+        });
+        spaces.forEach((s) => {
+            if (s.location_geometry) set.add(levelOf(s.location_geometry));
+        });
+        return Array.from(set).sort((a, b) => a - b);
+    }, [planUrls, spaces]);
+
+    const [floorCount, setFloorCount] = useState<number>(
+        Math.max(1, ...initialFloors),
+    );
+    const [activeLevel, setActiveLevel] = useState<number>(1);
     const [selectedId, setSelectedId] = useState<string | null>(
         spaces[0]?.id ?? null,
     );
     const [search, setSearch] = useState('');
-    const [plan, setPlan] = useState<string | null>(planUrl);
     const [uploading, setUploading] = useState(false);
     const planInput = useRef<HTMLInputElement>(null);
+
+    const plan = plans[activeLevel] ?? null;
 
     const uploadPlan = async (file: File) => {
         setUploading(true);
         const body = new FormData();
         body.append('plan', file);
+        body.append('level', String(activeLevel));
 
         try {
             const res = await fetch('/operations/map-calibration/plan', {
@@ -83,22 +123,28 @@ export default function MapCalibration({
             });
             const json = await res.json();
             if (json?.data?.plan_url) {
-                setPlan(json.data.plan_url);
+                setPlans((p) => ({ ...p, [activeLevel]: json.data.plan_url }));
             }
         } finally {
             setUploading(false);
         }
     };
 
-    const pinnedCount = items.filter((s) => s.location_geometry).length;
+    const addFloor = () => {
+        if (floorCount >= maxLevels) return;
+        const next = floorCount + 1;
+        setFloorCount(next);
+        setActiveLevel(next);
+    };
+
+    const onActiveLevel = items.filter(
+        (s) => s.location_geometry && levelOf(s.location_geometry) === activeLevel,
+    );
+    const pinnedTotal = items.filter((s) => s.location_geometry).length;
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
-
-        if (!q) {
-            return items;
-        }
-
+        if (!q) return items;
         return items.filter((s) =>
             [s.name, s.box_ref, s.room_code]
                 .filter(Boolean)
@@ -106,39 +152,28 @@ export default function MapCalibration({
         );
     }, [items, search]);
 
-    const pins: MapPin[] = items
-        .filter((s) => s.location_geometry)
-        .map((s) => ({
-            id: s.id,
-            x: s.location_geometry!.x,
-            y: s.location_geometry!.y,
-            label: s.box_ref ?? s.name,
-            tone: s.id === selectedId ? 'highlight' : 'default',
-        }));
+    const pins: MapPin[] = onActiveLevel.map((s) => ({
+        id: s.id,
+        x: s.location_geometry!.x,
+        y: s.location_geometry!.y,
+        label: s.box_ref ?? s.name,
+        tone: s.id === selectedId ? 'highlight' : 'default',
+    }));
 
     const updateLocal = (id: string, geometry: Geometry) => {
         setItems((prev) =>
-            prev.map((s) =>
-                s.id === id ? { ...s, location_geometry: geometry } : s,
-            ),
+            prev.map((s) => (s.id === id ? { ...s, location_geometry: geometry } : s)),
         );
     };
 
     const place = async (point: { x: number; y: number }) => {
-        if (!selectedId) {
-            return;
-        }
+        if (!selectedId) return;
+        const geometry = { ...point, level: activeLevel };
+        updateLocal(selectedId, geometry);
+        await saveGeometry(selectedId, geometry);
 
-        updateLocal(selectedId, point);
-        await saveGeometry(selectedId, point);
-
-        // Jump to the next un-pinned venue to keep the flow fast.
-        const next = items.find(
-            (s) => s.id !== selectedId && !s.location_geometry,
-        );
-        if (next) {
-            setSelectedId(next.id);
-        }
+        const next = items.find((s) => s.id !== selectedId && !s.location_geometry);
+        if (next) setSelectedId(next.id);
     };
 
     const clear = async (id: string) => {
@@ -147,6 +182,7 @@ export default function MapCalibration({
     };
 
     const selected = items.find((s) => s.id === selectedId) ?? null;
+    const floors = Array.from({ length: floorCount }, (_, i) => i + 1);
 
     return (
         <div
@@ -165,6 +201,7 @@ export default function MapCalibration({
                     rel="stylesheet"
                 />
             </Head>
+            <style dangerouslySetInnerHTML={{ __html: css }} />
 
             {/* ===== venue list ===== */}
             <aside
@@ -198,18 +235,10 @@ export default function MapCalibration({
                     <h1 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>
                         Map calibration
                     </h1>
-                    <p
-                        style={{
-                            fontSize: 12.5,
-                            color: C.muted,
-                            margin: '4px 0 0',
-                        }}
-                    >
-                        Pick a venue, then click its spot on the plan.{' '}
-                        <strong style={{ color: C.green }}>
-                            {pinnedCount}/{items.length}
-                        </strong>{' '}
-                        pinned.
+                    <p style={{ fontSize: 12.5, color: C.muted, margin: '4px 0 0' }}>
+                        Pick a venue, then click its spot on the active floor.{' '}
+                        <strong style={{ color: C.green }}>{pinnedTotal}</strong> of{' '}
+                        {items.length} pinned.
                     </p>
                     <input
                         value={search}
@@ -232,12 +261,16 @@ export default function MapCalibration({
                     {filtered.map((space) => {
                         const isSelected = space.id === selectedId;
                         const pinned = !!space.location_geometry;
+                        const lvl = pinned ? levelOf(space.location_geometry) : null;
 
                         return (
                             <button
                                 key={space.id}
                                 type="button"
-                                onClick={() => setSelectedId(space.id)}
+                                onClick={() => {
+                                    setSelectedId(space.id);
+                                    if (lvl) setActiveLevel(lvl);
+                                }}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -267,11 +300,7 @@ export default function MapCalibration({
                                         border: pinned ? 'none' : `1px solid ${C.border}`,
                                     }}
                                 >
-                                    {pinned ? (
-                                        <Check size={13} />
-                                    ) : (
-                                        <MapPinIcon size={12} />
-                                    )}
+                                    {pinned ? <Check size={13} /> : <MapPinIcon size={12} />}
                                 </span>
                                 <span style={{ minWidth: 0, flex: 1 }}>
                                     <span
@@ -286,16 +315,9 @@ export default function MapCalibration({
                                     >
                                         {space.name}
                                     </span>
-                                    <span
-                                        style={{
-                                            display: 'block',
-                                            fontSize: 11.5,
-                                            color: C.faint,
-                                        }}
-                                    >
+                                    <span style={{ display: 'block', fontSize: 11.5, color: C.faint }}>
                                         {space.box_ref ?? space.room_code ?? '—'}
-                                        {' · floor '}
-                                        {space.floor} · {space.capacity} cap
+                                        {pinned ? ` · pinned on floor ${lvl}` : ''}
                                     </span>
                                 </span>
                                 {pinned && (
@@ -307,11 +329,7 @@ export default function MapCalibration({
                                             void clear(space.id);
                                         }}
                                         title="Clear pin"
-                                        style={{
-                                            flex: 'none',
-                                            color: C.faint,
-                                            display: 'flex',
-                                        }}
+                                        style={{ flex: 'none', color: C.faint, display: 'flex' }}
                                     >
                                         <Trash2 size={14} />
                                     </span>
@@ -324,6 +342,121 @@ export default function MapCalibration({
 
             {/* ===== plan ===== */}
             <main style={{ flex: 1, padding: 24, overflow: 'auto' }}>
+                {/* floor switcher + slider */}
+                <div
+                    style={{
+                        background: C.card,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 14,
+                        padding: '14px 18px',
+                        marginBottom: 14,
+                    }}
+                >
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            marginBottom: floorCount > 1 ? 14 : 0,
+                        }}
+                    >
+                        <Layers size={17} color={C.green} />
+                        <span style={{ fontSize: 14, fontWeight: 700 }}>
+                            Floor {activeLevel}
+                        </span>
+                        <span style={{ fontSize: 12.5, color: C.faint }}>
+                            · {onActiveLevel.length} pinned here
+                        </span>
+
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                            {floors.map((lvl) => (
+                                <button
+                                    key={lvl}
+                                    type="button"
+                                    onClick={() => setActiveLevel(lvl)}
+                                    style={{
+                                        width: 34,
+                                        height: 34,
+                                        borderRadius: 9,
+                                        border: `1px solid ${activeLevel === lvl ? C.green : C.border}`,
+                                        background: activeLevel === lvl ? C.greenTint : C.card,
+                                        color: activeLevel === lvl ? C.green : C.muted,
+                                        fontSize: 14,
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                        position: 'relative',
+                                    }}
+                                >
+                                    {lvl}
+                                    {plans[lvl] && (
+                                        <span
+                                            style={{
+                                                position: 'absolute',
+                                                top: -3,
+                                                right: -3,
+                                                width: 9,
+                                                height: 9,
+                                                borderRadius: '50%',
+                                                background: C.green,
+                                                border: '2px solid #fff',
+                                            }}
+                                        />
+                                    )}
+                                </button>
+                            ))}
+                            {floorCount < maxLevels && (
+                                <button
+                                    type="button"
+                                    className="mc-btn"
+                                    onClick={addFloor}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        padding: '0 13px',
+                                        height: 34,
+                                        borderRadius: 9,
+                                        border: `1px dashed ${C.border}`,
+                                        background: C.card,
+                                        color: C.green,
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <Plus size={15} />
+                                    Add floor {floorCount + 1}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* interactive slider to scrub between floors */}
+                    {floorCount > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <span style={{ fontSize: 12, color: C.faint, fontWeight: 600 }}>
+                                Lower
+                            </span>
+                            <input
+                                type="range"
+                                className="mc-range"
+                                min={1}
+                                max={floorCount}
+                                step={1}
+                                value={activeLevel}
+                                onChange={(e) => setActiveLevel(Number(e.target.value))}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ fontSize: 12, color: C.faint, fontWeight: 600 }}>
+                                Upper
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* status + upload */}
                 <div
                     style={{
                         background: C.card,
@@ -341,16 +474,14 @@ export default function MapCalibration({
                     <span style={{ flex: 1 }}>
                         {!plan ? (
                             <span style={{ color: C.muted }}>
-                                Upload the Pyramid floor plan to start placing
-                                venues.
+                                Upload the plan for floor {activeLevel} to start pinning
+                                its venues.
                             </span>
                         ) : selected ? (
                             <span>
                                 Placing <strong>{selected.name}</strong>
-                                {selected.box_ref
-                                    ? ` (${selected.box_ref})`
-                                    : ''}{' '}
-                                — click its location on the plan.
+                                {selected.box_ref ? ` (${selected.box_ref})` : ''} on{' '}
+                                <strong>floor {activeLevel}</strong> — click its spot.
                             </span>
                         ) : (
                             <span style={{ color: C.muted }}>
@@ -365,14 +496,12 @@ export default function MapCalibration({
                         style={{ display: 'none' }}
                         onChange={(e) => {
                             const f = e.target.files?.[0];
-                            if (f) {
-                                void uploadPlan(f);
-                            }
+                            if (f) void uploadPlan(f);
                         }}
                     />
                     <button
                         type="button"
-                        className="ops-btn"
+                        className="mc-btn"
                         onClick={() => planInput.current?.click()}
                         disabled={uploading}
                         style={{
@@ -394,8 +523,8 @@ export default function MapCalibration({
                         {uploading
                             ? 'Uploading…'
                             : plan
-                              ? 'Replace plan'
-                              : 'Upload plan'}
+                              ? `Replace floor ${activeLevel}`
+                              : `Upload floor ${activeLevel}`}
                     </button>
                 </div>
 
@@ -433,7 +562,7 @@ export default function MapCalibration({
                     >
                         <ImageUp size={34} color={C.green} />
                         <span style={{ fontSize: 15, fontWeight: 600 }}>
-                            Upload the Pyramid floor plan
+                            Upload the floor {activeLevel} plan
                         </span>
                         <span style={{ fontSize: 13, color: C.faint }}>
                             PNG or JPG — then click each venue's spot to pin it.

@@ -14,6 +14,7 @@ enum AlertSource: string
     case Conflict = 'conflict';
     case Inventory = 'inventory';
     case Schedule = 'schedule';
+    case Worker = 'worker';
 
     public function label(): string
     {
@@ -23,6 +24,7 @@ enum AlertSource: string
             self::Conflict => 'Conflict detection',
             self::Inventory => 'Inventory',
             self::Schedule => 'Schedule',
+            self::Worker => 'Raised by worker',
         };
     }
 }

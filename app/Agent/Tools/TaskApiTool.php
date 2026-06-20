@@ -7,6 +7,7 @@ namespace App\Agent\Tools;
 use App\Agent\Tool;
 use App\Enums\ActivityLogAction;
 use App\Enums\TaskPhase;
+use App\Enums\TaskPriority;
 use App\Enums\TaskState;
 use App\Models\Event;
 use App\Models\Task;
@@ -43,10 +44,12 @@ class TaskApiTool implements Tool
 
     public function description(): string
     {
-        return 'Create and assign ONE operational task for this event. Call it once per task — call it '
-            .'many times to build the full plan. Assign each task to the worker (by worker_id) whose role '
+        return 'Create and assign ONE richly-detailed operational task for this event. Call it once per task — '
+            .'call it many times to build the full plan. Assign each task to the worker (by worker_id) whose role '
             .'best fits the work. phase is when it happens: setup (before), during (live event), teardown (after). '
-            .'due_offset_hours is relative to the event START (negative = before the event, positive = after).';
+            .'due_offset_hours is relative to the event START (negative = before, positive = after). Always include '
+            .'a priority, a realistic time estimate, where in the venue it happens, a concrete step-by-step '
+            .'checklist, and the resources/equipment needed — make each task genuinely useful, not generic.';
     }
 
     /**
@@ -82,9 +85,47 @@ class TaskApiTool implements Tool
                     'type' => 'number',
                     'description' => 'Hours relative to the event start (negative = before, positive = after).',
                 ],
+                'priority' => [
+                    'type' => 'string',
+                    'enum' => ['low', 'medium', 'high', 'urgent'],
+                    'description' => 'How urgent/critical the task is.',
+                ],
+                'estimated_minutes' => [
+                    'type' => 'integer',
+                    'description' => 'Realistic time to complete, in minutes.',
+                ],
+                'location' => [
+                    'type' => 'string',
+                    'description' => 'Where in the venue it happens, e.g. "Main hall — stage" or "Registration desk".',
+                ],
+                'checklist' => [
+                    'type' => 'array',
+                    'items' => ['type' => 'string'],
+                    'description' => 'Concrete step-by-step actions to complete the task (3–6 short steps).',
+                ],
+                'resources' => [
+                    'type' => 'array',
+                    'items' => ['type' => 'string'],
+                    'description' => 'Equipment, tools or materials needed, e.g. "2 microphones", "projector", "trolley".',
+                ],
             ],
-            'required' => ['action', 'name', 'phase', 'worker_id'],
+            'required' => ['action', 'name', 'phase', 'worker_id', 'priority', 'checklist'],
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn (mixed $item): string => trim((string) $item),
+            $value,
+        ), fn (string $item): bool => $item !== ''));
     }
 
     /**
@@ -119,6 +160,11 @@ class TaskApiTool implements Tool
             }
         }
 
+        $priority = TaskPriority::tryFrom((string) ($arguments['priority'] ?? '')) ?? TaskPriority::Medium;
+        $estimated = isset($arguments['estimated_minutes']) && is_numeric($arguments['estimated_minutes'])
+            ? max(1, (int) $arguments['estimated_minutes'])
+            : null;
+
         try {
             $task = Task::query()->create([
                 'event_id' => $this->event->id,
@@ -127,6 +173,11 @@ class TaskApiTool implements Tool
                 'description' => trim((string) ($arguments['description'] ?? '')) ?: null,
                 'phase' => $phase->value,
                 'state' => TaskState::Pending->value,
+                'priority' => $priority->value,
+                'estimated_minutes' => $estimated,
+                'location' => trim((string) ($arguments['location'] ?? '')) ?: null,
+                'checklist' => $this->stringList($arguments['checklist'] ?? null) ?: null,
+                'resources' => $this->stringList($arguments['resources'] ?? null) ?: null,
                 'due_at' => $this->dueAt($arguments['due_offset_hours'] ?? null),
             ]);
 
@@ -150,6 +201,11 @@ class TaskApiTool implements Tool
             'phase' => $task->phase->value,
             'phase_label' => $task->phase->label(),
             'state' => $task->state->value,
+            'priority' => $task->priority->value,
+            'estimated_minutes' => $task->estimated_minutes,
+            'location' => $task->location,
+            'checklist' => $task->checklist,
+            'resources' => $task->resources,
             'due_at' => $task->due_at?->toIso8601String(),
             'worker' => ['id' => $worker->id, 'name' => $worker->name, 'role' => $worker->worker_role],
         ];

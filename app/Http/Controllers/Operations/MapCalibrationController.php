@@ -19,9 +19,12 @@ use Inertia\Response;
  */
 class MapCalibrationController extends Controller
 {
+    /** The Pyramid is calibrated across up to this many floor plans. */
+    private const MAX_LEVELS = 3;
+
     /**
-     * The calibration workspace: the plan image plus every venue and its
-     * currently-pinned position (if any).
+     * The calibration workspace: the per-floor plan images plus every venue and
+     * its currently-pinned position (if any).
      */
     public function index(Request $request): Response
     {
@@ -51,19 +54,19 @@ class MapCalibrationController extends Controller
 
         return Inertia::render('operations/map-calibration', [
             'spaces' => $spaces,
-            'planUrl' => $this->planUrl(),
+            'planUrls' => $this->planUrls(),
+            'maxLevels' => self::MAX_LEVELS,
         ]);
     }
 
     /**
-     * Upload (or replace) the Pyramid floor-plan image used for calibration.
-     * It is stored at the fixed public path both the calibration tool and the
-     * organizer-facing map already reference.
+     * Upload (or replace) the floor-plan image for one level of the Pyramid.
      */
     public function uploadPlan(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'plan' => ['required', 'image', 'max:12288'],
+            'level' => ['required', 'integer', 'min:1', 'max:'.self::MAX_LEVELS],
         ]);
 
         $directory = public_path('assets');
@@ -72,17 +75,49 @@ class MapCalibrationController extends Controller
             mkdir($directory, 0755, true);
         }
 
-        $request->file('plan')->move($directory, 'pyramid-plan.png');
+        $level = (int) $validated['level'];
+        $request->file('plan')->move($directory, $this->planFile($level));
 
-        return response()->json(['data' => ['plan_url' => $this->planUrl(true)]]);
+        return response()->json(['data' => [
+            'level' => $level,
+            'plan_url' => $this->planUrl($level, true),
+        ]]);
     }
 
     /**
-     * The URL of the uploaded plan image (cache-busted), or null if none yet.
+     * The URLs of every uploaded floor plan, keyed by level.
+     *
+     * @return array<int, string|null>
      */
-    private function planUrl(bool $bustCache = false): ?string
+    private function planUrls(): array
     {
-        $path = public_path('assets/pyramid-plan.png');
+        $urls = [];
+
+        for ($level = 1; $level <= self::MAX_LEVELS; $level++) {
+            $urls[$level] = $this->planUrl($level);
+        }
+
+        return $urls;
+    }
+
+    private function planFile(int $level): string
+    {
+        return "pyramid-plan-{$level}.png";
+    }
+
+    /**
+     * The URL of a level's plan image (cache-busted), or null if none yet.
+     * Level 1 falls back to the legacy single-plan file.
+     */
+    private function planUrl(int $level, bool $bustCache = false): ?string
+    {
+        $file = $this->planFile($level);
+        $path = public_path('assets/'.$file);
+
+        if (! is_file($path) && $level === 1 && is_file(public_path('assets/pyramid-plan.png'))) {
+            $file = 'pyramid-plan.png';
+            $path = public_path('assets/pyramid-plan.png');
+        }
 
         if (! is_file($path)) {
             return null;
@@ -90,11 +125,11 @@ class MapCalibrationController extends Controller
 
         $version = $bustCache ? time() : filemtime($path);
 
-        return '/assets/pyramid-plan.png?v='.$version;
+        return '/assets/'.$file.'?v='.$version;
     }
 
     /**
-     * Save (or clear) a venue's pinned position on the plan.
+     * Save (or clear) a venue's pinned position on a given floor plan.
      */
     public function update(Request $request, Space $space): JsonResponse
     {
@@ -107,10 +142,15 @@ class MapCalibrationController extends Controller
         $validated = $request->validate([
             'x' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'y' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'level' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_LEVELS],
         ]);
 
         $geometry = isset($validated['x'], $validated['y'])
-            ? ['x' => round((float) $validated['x'], 4), 'y' => round((float) $validated['y'], 4)]
+            ? [
+                'x' => round((float) $validated['x'], 4),
+                'y' => round((float) $validated['y'], 4),
+                'level' => (int) ($validated['level'] ?? 1),
+            ]
             : null;
 
         $space->update(['location_geometry' => $geometry]);

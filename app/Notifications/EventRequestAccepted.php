@@ -5,11 +5,12 @@ namespace App\Notifications;
 use App\Models\Event;
 use App\Models\EventRequest;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
  * Tells an organizer their submitted event request was accepted by the
- * operations team and registered as a real event.
+ * operations team and registered as a real event — in-app and by email.
  */
 class EventRequestAccepted extends Notification
 {
@@ -21,18 +22,37 @@ class EventRequestAccepted extends Notification
     ) {}
 
     /**
-     * Get the notification's delivery channels.
-     *
      * @return array<int, string>
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $title = $this->eventRequest->title ?? 'your event';
+        $price = $this->eventRequest->price_agreed;
+
+        $mail = (new MailMessage)
+            ->subject('Your event is confirmed — '.$title)
+            ->greeting('Great news!')
+            ->line("Your event “{$title}” has been confirmed and registered by the Pyramid of Tirana operations team.");
+
+        if ($this->event->start_time !== null) {
+            $mail->line('When: '.$this->event->start_time->toDayDateTimeString());
+        }
+
+        if ($price !== null) {
+            $mail->line('Agreed price: €'.number_format((float) $price, 0));
+        }
+
+        return $mail
+            ->action('View your event', url('/my-events/'.$this->event->id))
+            ->line('We look forward to hosting you at the Pyramid.');
     }
 
     /**
-     * Get the array representation of the notification.
-     *
      * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array

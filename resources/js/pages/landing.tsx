@@ -53,6 +53,21 @@ body{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;ba
 
 /* Hover behaviours ported from style-hover */
 .nav-link:hover{color:#fff}
+.nav-link{white-space:nowrap}
+.lp-nav-links{flex-shrink:0}
+.lp-logo{flex-shrink:0}
+.lp-logo span{white-space:nowrap}
+/* Responsive navbar — stop the logo + links overlapping on small screens */
+@media (max-width:680px){
+  .lp-nav{padding:20px 22px !important;gap:14px}
+  .lp-logo-sub{display:none !important}
+  .lp-nav-links{gap:18px !important}
+}
+@media (max-width:430px){
+  .lp-nav{flex-wrap:wrap;padding:16px 18px !important}
+  .lp-logo-title{font-size:18px !important}
+  .nav-link{font-size:13.5px !important}
+}
 .step-panel:hover{transform:translateY(-10px);box-shadow:0 32px 64px -28px rgba(16,130,91,0.28)}
 .step-panel:hover .step-panel-arrow{transform:translateX(5px);opacity:1}
 .step-row:hover{padding-left:14px}
@@ -185,6 +200,7 @@ export default function Landing({
                     )}
 
                     <nav
+                        className="lp-nav"
                         style={{
                             position: 'absolute',
                             top: 0,
@@ -200,6 +216,7 @@ export default function Landing({
                     >
                         <a
                             href="#top"
+                            className="lp-logo"
                             style={{
                                 display: 'flex',
                                 alignItems: 'baseline',
@@ -208,6 +225,7 @@ export default function Landing({
                             }}
                         >
                             <span
+                                className="lp-logo-title"
                                 style={{
                                     fontSize: '21px',
                                     fontWeight: 800,
@@ -218,6 +236,7 @@ export default function Landing({
                                 PIRAMIDA
                             </span>
                             <span
+                                className="lp-logo-sub"
                                 style={{
                                     fontSize: '12px',
                                     fontWeight: 500,
@@ -230,6 +249,7 @@ export default function Landing({
                             </span>
                         </a>
                         <div
+                            className="lp-nav-links"
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',

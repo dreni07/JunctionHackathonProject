@@ -4,6 +4,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EventRequestController;
 use App\Http\Controllers\FacilityController;
+use App\Http\Controllers\MyEventController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OcrController;
 use App\Http\Controllers\OperationalChangePollController;
@@ -47,7 +48,9 @@ Route::post('pyramid/ingest', [PyramidKnowledgeController::class, 'store'])
 Route::get('pyramid/knowledge', [PyramidKnowledgeController::class, 'explore'])
     ->name('pyramid.knowledge.index');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+// Email verification is intentionally NOT enforced — these routes use `auth`
+// only so signed-in users are never bounced to a "verify your email" screen.
+Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', function (Request $request) {
         if ($request->user()?->isOperational()) {
             return redirect()->route('operations.home');
@@ -57,6 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     // Operations dashboard shell (the React app reads the operations.* JSON API).
+    // `operational` blocks organization accounts (they're redirected to /dashboard).
     Route::get('operations', function (Request $request) {
         $user = $request->user();
 
@@ -70,6 +74,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('operational/changes/poll', OperationalChangePollController::class)
         ->middleware('operational')
         ->name('operational.changes.poll');
+
+    // Organization event viewer: their booked events, analytics + live readiness.
+    Route::get('my-events', [MyEventController::class, 'index'])->name('my-events.index');
+    Route::get('my-events/{event}', [MyEventController::class, 'show'])->name('my-events.show');
+    Route::get('my-events/{event}/progress', [MyEventController::class, 'progress'])->name('my-events.progress');
 
     // Profile completion (avatar + details).
     Route::get('profile/complete', [UserProfileController::class, 'edit'])->name('profile.complete');

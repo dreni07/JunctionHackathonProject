@@ -16,9 +16,14 @@ class UserProfileController extends Controller
     /**
      * Show the signed-in user's profile-completion page.
      */
-    public function edit(Request $request): Response
+    public function edit(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
+
+        if ($user->isOperational()) {
+            return redirect()->route('operations.home');
+        }
+
         $profile = $user->profile;
 
         return Inertia::render('profile/complete', [
@@ -42,6 +47,12 @@ class UserProfileController extends Controller
      */
     public function update(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($user->isOperational()) {
+            return redirect()->route('operations.home');
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:40'],
@@ -53,7 +64,6 @@ class UserProfileController extends Controller
             'avatar' => ['nullable', 'image', 'max:4096'],
         ]);
 
-        $user = $request->user();
         $user->update(['name' => $validated['name'], 'phone' => $validated['phone'] ?? null]);
 
         $profile = $user->profile ?? new UserProfile(['user_id' => $user->id]);
@@ -77,10 +87,6 @@ class UserProfileController extends Controller
         $user->profile()->save($profile);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile updated.')]);
-
-        if ($user->isOperational()) {
-            return to_route('operations.home');
-        }
 
         return to_route('planner');
     }
