@@ -12,12 +12,7 @@ const inputClass =
     'w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-900';
 const labelClass = 'mb-2 block text-sm font-medium text-neutral-700';
 
-const passwordRules = [
-    'Use 8 or more characters',
-    'Use upper and lower case letters (e.g. Aa)',
-    'Use a number (e.g. 1234)',
-    'Use a symbol (e.g. !@#$)',
-];
+const passwordRules = ['Use 8 or more characters'];
 
 export default function Register() {
     const [showPassword, setShowPassword] = useState(false);

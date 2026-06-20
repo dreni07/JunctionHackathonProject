@@ -773,6 +773,79 @@ export default function OperationsDashboard() {
 
 /* ============================ OVERVIEW ============================ */
 
+function TaskRow({
+    task,
+    onChanged,
+}: {
+    task: Task;
+    onChanged: () => void;
+}) {
+    const [busy, setBusy] = useState(false);
+    const priorityColor = PRIORITY_COLOR[task.priority] ?? C.faint;
+    const canComplete =
+        task.state !== 'finished' && task.state !== 'cancelled';
+
+    const complete = async () => {
+        setBusy(true);
+        await patchJson(`/operations/tasks/${task.id}`, { state: 'finished' });
+        setBusy(false);
+        onChanged();
+    };
+
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '14px 0',
+                borderTop: `1px solid ${C.borderSoft}`,
+            }}
+        >
+            <span
+                title={task.priority_label}
+                style={{
+                    marginTop: 5,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: priorityColor,
+                    flex: 'none',
+                }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600 }}>{task.name}</div>
+                <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>
+                    {task.state_label}
+                    {task.event?.title ? ` · ${task.event.title}` : ''}
+                    {task.due_at ? ` · ${formatDate(task.due_at)}` : ''}
+                </div>
+            </div>
+            {canComplete && (
+                <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void complete()}
+                    className="ops-pill"
+                    style={{
+                        flex: 'none',
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        border: `1px solid ${C.border}`,
+                        background: C.card,
+                        color: C.green,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: busy ? 'wait' : 'pointer',
+                    }}
+                >
+                    Done
+                </button>
+            )}
+        </div>
+    );
+}
+
 function Overview({
     user,
     tenant,
@@ -991,7 +1064,7 @@ function TasksView({ user }: { user: AuthUser }) {
                     <Empty text="Loading your board…" />
                 </Panel>
             ) : tasks.length === 0 ? (
-                <Panel title={null}>
+                <Panel title={null} loading={false}>
                     <Empty text="No tasks here yet — accept an event request to have the AI plan the work." />
                 </Panel>
             ) : (
