@@ -1,8 +1,13 @@
 <?php
 
+use App\Models\User;
 use App\Services\DocumentOcrService;
 use App\Services\OcrService;
 use Illuminate\Http\UploadedFile;
+
+beforeEach(function (): void {
+    $this->actingAs(User::factory()->create());
+});
 
 it('renders the landing page', function () {
     $this->get('/')->assertOk();

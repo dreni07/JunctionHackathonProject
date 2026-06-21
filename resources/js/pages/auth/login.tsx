@@ -1,16 +1,16 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Link } from '@inertiajs/react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
-import PasskeyVerify from '@/components/passkey-verify';
-import PasswordInput from '@/components/password-input';
-import TextLink from '@/components/text-link';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import AuthMinimalLayout from '@/layouts/auth/auth-minimal-layout';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
+
+const inputClass =
+    'w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-900';
+const labelClass = 'mb-2 block text-sm font-medium text-neutral-700';
 
 type Props = {
     status?: string;
@@ -18,100 +18,145 @@ type Props = {
 };
 
 export default function Login({ status, canResetPassword }: Props) {
-    return (
-        <>
-            <Head title="Log in" />
+    const [showPassword, setShowPassword] = useState(false);
 
-            <PasskeyVerify />
+    return (
+        <AuthMinimalLayout title="Log in">
+            <div className="mb-7 text-center">
+                <h1 className="text-[26px] font-bold tracking-tight text-neutral-900">
+                    Welcome back
+                </h1>
+                <p className="mx-auto mt-2 max-w-[300px] text-sm leading-relaxed text-neutral-500">
+                    Log in to keep planning your events at the Pyramid of Tirana.
+                </p>
+            </div>
+
+            {status && (
+                <div className="mb-5 rounded-lg bg-neutral-100 px-4 py-2.5 text-center text-sm font-medium text-neutral-700">
+                    {status}
+                </div>
+            )}
 
             <Form
                 {...store.form()}
                 resetOnSuccess={['password']}
-                className="flex flex-col gap-6"
+                disableWhileProcessing
+                className="flex flex-col gap-5"
             >
                 {({ processing, errors }) => (
                     <>
-                        <div className="grid gap-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    required
-                                    autoFocus
-                                    tabIndex={1}
-                                    autoComplete="email"
-                                    placeholder="email@example.com"
-                                />
-                                <InputError message={errors.email} />
-                            </div>
+                        <div>
+                            <label htmlFor="email" className={labelClass}>
+                                Email
+                            </label>
+                            <input
+                                id="email"
+                                name="email"
+                                type="email"
+                                required
+                                autoFocus
+                                autoComplete="email"
+                                className={inputClass}
+                            />
+                            <InputError message={errors.email} className="mt-2" />
+                        </div>
 
-                            <div className="grid gap-2">
-                                <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
-                                    {canResetPassword && (
-                                        <TextLink
-                                            href={request()}
-                                            className="ml-auto text-sm"
-                                            tabIndex={5}
-                                        >
-                                            Forgot your password?
-                                        </TextLink>
+                        <div>
+                            <div className="mb-2 flex items-center justify-between">
+                                <label
+                                    htmlFor="password"
+                                    className="text-sm font-medium text-neutral-700"
+                                >
+                                    Password
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPassword((value) => !value)
+                                    }
+                                    className="flex items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-800"
+                                >
+                                    {showPassword ? (
+                                        <Eye className="size-4" />
+                                    ) : (
+                                        <EyeOff className="size-4" />
                                     )}
-                                </div>
-                                <PasswordInput
-                                    id="password"
-                                    name="password"
-                                    required
-                                    tabIndex={2}
-                                    autoComplete="current-password"
-                                    placeholder="Password"
-                                />
-                                <InputError message={errors.password} />
+                                    {showPassword ? 'Show' : 'Hide'}
+                                </button>
                             </div>
+                            <input
+                                id="password"
+                                name="password"
+                                type={showPassword ? 'text' : 'password'}
+                                required
+                                autoComplete="current-password"
+                                className={inputClass}
+                            />
+                            <InputError
+                                message={errors.password}
+                                className="mt-2"
+                            />
+                        </div>
 
-                            <div className="flex items-center space-x-3">
-                                <Checkbox
-                                    id="remember"
-                                    name="remember"
-                                    tabIndex={3}
-                                />
-                                <Label htmlFor="remember">Remember me</Label>
-                            </div>
+                        <label className="flex items-center gap-2.5 text-sm text-neutral-600 select-none">
+                            <input
+                                type="checkbox"
+                                name="remember"
+                                className="size-4 rounded border-neutral-300 text-neutral-900 accent-neutral-900"
+                            />
+                            Remember me
+                        </label>
 
-                            <Button
-                                type="submit"
-                                className="mt-4 w-full"
-                                tabIndex={4}
-                                disabled={processing}
-                                data-test="login-button"
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-neutral-900 px-6 py-3.5 text-[15px] font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-60"
+                            data-test="login-button"
+                        >
+                            {processing && <Spinner />}
+                            Log in
+                        </button>
+
+                        <div className="flex flex-col items-center gap-1.5 text-center text-sm text-neutral-500">
+                            <p>
+                                New to Piramida?{' '}
+                                <Link
+                                    href={register()}
+                                    className="font-medium text-neutral-800 underline underline-offset-2"
+                                >
+                                    Create an account
+                                </Link>
+                            </p>
+                            {canResetPassword && (
+                                <Link
+                                    href={request()}
+                                    className="hover:text-neutral-700"
+                                >
+                                    Forget your user ID or password?
+                                </Link>
+                            )}
+                        </div>
+
+                        <p className="text-center text-[13px] leading-relaxed text-neutral-500">
+                            By continuing, you agree to the{' '}
+                            <a
+                                href="#"
+                                className="font-medium text-neutral-700 underline underline-offset-2"
                             >
-                                {processing && <Spinner />}
-                                Log in
-                            </Button>
-                        </div>
-
-                        <div className="text-center text-sm text-muted-foreground">
-                            Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5}>
-                                Sign up
-                            </TextLink>
-                        </div>
+                                Terms of use
+                            </a>{' '}
+                            and{' '}
+                            <a
+                                href="#"
+                                className="font-medium text-neutral-700 underline underline-offset-2"
+                            >
+                                Privacy Policy
+                            </a>
+                            .
+                        </p>
                     </>
                 )}
             </Form>
-
-            {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
-                    {status}
-                </div>
-            )}
-        </>
+        </AuthMinimalLayout>
     );
 }
-
-Login.layout = {
-    title: 'Log in to your account',
-    description: 'Enter your email and password below to log in',
-};

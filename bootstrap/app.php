@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsureOperationalAccount;
+use App\Http\Middleware\EnsureOrganizationAccount;
+use App\Http\Middleware\EnsureTenantManager;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -16,6 +19,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        $middleware->alias([
+            'organization' => EnsureOrganizationAccount::class,
+            'operational' => EnsureOperationalAccount::class,
+            'tenant.manager' => EnsureTenantManager::class,
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

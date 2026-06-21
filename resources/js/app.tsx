@@ -14,7 +14,29 @@ createInertiaApp({
         switch (true) {
             case name === 'welcome':
                 return null;
+            case name === 'landing':
+                return null;
+            case name === 'planner':
+                return null;
+            case name === 'profile/complete':
+                return null;
+            case name === 'facility':
+                return null;
+            case name.startsWith('operations/'):
+                return null;
+            case name.startsWith('my-events/'):
+                return null;
             case name.startsWith('documents/'):
+                return null;
+            case name === 'chat':
+                return null;
+            case name.startsWith('pyramid/'):
+                return null;
+            case name === 'auth/login':
+                return null;
+            case name === 'auth/register':
+                return null;
+            case name === 'auth/reset-password':
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
