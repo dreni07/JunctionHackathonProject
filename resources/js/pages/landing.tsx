@@ -352,9 +352,14 @@ export default function Landing({
                                 Start planning
                                 <span className="arrow">→</span>
                             </a>
-                            <button type="button" className="cta-btn-secondary">
+                            <a
+                                href="https://www.youtube.com/watch?v=QkprGogejmk"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="cta-btn-secondary"
+                            >
                                 See Demo
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </section>
